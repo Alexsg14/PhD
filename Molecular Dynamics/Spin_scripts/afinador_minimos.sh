@@ -12,10 +12,10 @@ module load gcc/system openmpi/4.0.5_ft3_cuda gromacs/2021.4-plumed-2.8.0
 #el $1> valor ese valor es el valor minimo a tener en cuenta
 cv1=`awk 'NR == 1 {line = $1; min = $3}
           NR > 1 && $1 > -8 && $3 < min {line = $1; min = $3}
-          END{print line}' fesd1d2.dat `
+          END{print line}' ../fesd1d2.dat `
 cv2=`awk 'NR == 1 {line = $2; min = $3}
           NR > 1 && $2 > -8 && $3 < min {line = $2; min = $3}
-          END{print line}' fesd1d2.dat `
+          END{print line}' ../fesd1d2.dat `
 echo $cv1
 echo $cv2 
 
@@ -34,7 +34,7 @@ echo 'Generating pdb ...'
     for i in {1..100}
     do
         echo 'Searching for times of the minima...'
-        times=`awk -v cv1=$cv1 -v cv2=$cv2 -v margin=$i '{if (($2<cv1-cv1*margin/100) && ($2>cv1+cv1*margin/100) && ($3>cv2-cv2*margin/100) && ($3<cv2+cv2*margin/100)) printf "%f ", $1}' COLVAR* `   # Solo coge los tiempos que al dividirlos por 25 el resto es 0
+        times=`awk -v cv1=$cv1 -v cv2=$cv2 -v margin=$i '{if (($2<cv1-cv1*margin/100) && ($2>cv1+cv1*margin/100) && ($3>cv2-cv2*margin/100) && ($3<cv2+cv2*margin/100)) printf "%f ", $1}' ../../COLVAR* `   # Solo coge los tiempos que al dividirlos por 25 el resto es 0
         nfields=`echo $times|awk -F';' '{print NF}'`
         if [ $nfields -gt "0" ]
         then
@@ -51,11 +51,15 @@ echo 'Generating pdb ...'
 
     for time in $times
     do
-        gmx trjcat -f ../../traj_comp*.xtc -o $time.xtc -b $time -e $time
+    	increment=100
+	time_n=$(echo "$time + $increment" | bc)
+
+    	echo $time_n
+        gmx trjcat -f ../../traj_comp*.xtc -o $time.xtc -b $time -e $time_n
         #echo -e "0 \n0 \n0" | gmx trjconv -s ../prod_1.tpr -f $time.xtc -o $time.xtc -center -pbc cluster -n ../index.ndx 
-        echo -e "0 \n0" | gmx trjconv -s ../../metad.tpr -f $time.xtc -o $time.pdb -fit rot+trans -n ../../index.ndx
-        #rm  \#*
-        #rm *xtc
+        echo -e "0 \n0" | gmx trjconv -s ../../metad.tpr -f $time.xtc -o $time.pdb -fit rot+trans -n ../../index.ndx -skip $increment
+        rm  \#*
+        rm *xtc
         n=$n+1
         if [ $n -gt 20 ]; then
             break
