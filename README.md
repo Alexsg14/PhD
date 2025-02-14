@@ -95,28 +95,36 @@ First, we need to install [Anaconda Navigator](https://www.anaconda.com/download
 
   - Following the steps inside the documentation we can copy and paste the commands, the first one with a slight change since we need to specify the version of the environment.
 
-  ```conda create -n nanover -c irl -c conda-forge nanover-server=0.1.2768```
+```conda create -n nanover -c irl -c conda-forge nanover-server=0.1.2768```
 
 >[!NOTE]
->Follow the steps from here of the documentation.
+>Follow the steps from here of the [documentation](https://irl2.github.io/nanover-docs/).
 
 
-5º To run the tutorials of Nanover, you need to download the repository from [GitHub](https://github.com/IRL2/nanover-server-py) to your computer and navigate through the folder with Anaconda Powershell Prompt. Once you are inside the folder(nanover-server-py), run:
+5º To run the tutorials of Nanover, you need to download the repository from [GitHub](https://github.com/IRL2/nanover-server-py) to your computer:
 
-python -m jupyterlab
+-Code
+-Download ZIP
+
+
+and navigate through the folder with Anaconda Powershell Prompt. Once you are inside the folder(nanover-server-py), run:
+
+```python -m jupyterlab```
 
 This will open a new tab on your browser.
 
------------ Running Nanover -------------------
+## Running Nanover
 
 PC-VR:
 
 Once you follow the installation of Nanover itself, you need to install the iMD-VR client.
 
-In a Anaconda Powershell Prompt window, you need to introduce:
+In a Anaconda Powershell Prompt window, you need to:
+- Activate the environment
 
-```conda activate nanover``` # For activate the environment
+```conda activate nanover```
 
+- Install the NanoveriMD client
 
 ```conda install -c irl nanover-imd```
 
