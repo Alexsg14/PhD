@@ -145,7 +145,7 @@ for label, key in grouped_contacts.items():
     smoothed_frames = time_values[:len(smoothed_counts)]
     plt.plot(smoothed_frames, smoothed_counts, label=label, linestyle='-', marker='')
     plt.title(f"{label} Contactos a lo largo de la trayectoria")
-    plt.xlabel("Time ($\mu$S)")
+    plt.xlabel(r"Time ($\mu$s)")
     plt.ylabel("Número de contactos")
     plt.ylim(-1, None)
     plt.legend()
@@ -160,7 +160,7 @@ for label, key in grouped_contacts.items():
     plt.plot(smoothed_frames, smoothed_counts, label=label)
 
 plt.title("Contactos a lo largo de la trayectoria (Todos)")
-plt.xlabel("Time ($\mu$S)")
+plt.xlabel(r"Time ($\mu$s)")
 plt.ylabel("Número de contactos")
 plt.ylim(-1, None)
 plt.legend()
@@ -174,7 +174,7 @@ for label, values in z_data.items():
         continue
     plt.plot(time_values, values, label=label)
 plt.title("Evolución de la posición en Z")
-plt.xlabel("Time ($\mu$S)")
+plt.xlabel(r"Time ($\mu$s)")
 plt.ylabel("Posición en Z (Å)")
 plt.legend()
 plt.grid(True)

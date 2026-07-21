@@ -1,16 +1,32 @@
 #!/bin/bash
+# ==============================================================================
+# Script for B-factor Attribution on Receptor Atoms/Residues from Vina Results
+# ==============================================================================
 
-# Activa el entorno de Conda
-. /home/alejandroseco/anaconda3/etc/profile.d/conda.sh
-conda activate obabel_env
+# Activate Conda environment if available
+CONDA_BASE="${CONDA_BASE:-$HOME/anaconda3}"
+if [ -f "$CONDA_BASE/etc/profile.d/conda.sh" ]; then
+    source "$CONDA_BASE/etc/profile.d/conda.sh"
+    conda activate obabel_env 2>/dev/null || true
+fi
 
-# Ejecuta tu script de Python
-python ligand_energy_attribution_bfactor.py --pdbqt_ligs  /home/alejandroseco/Desktop/MMDR-main/Code/Output/all.pdbqt --output_pdb /home/alejandroseco/Desktop/MMDR-main/Code/Output/all.pdb --receptor /home/alejandroseco/Desktop/MMDR-main/Code/Output/receptor.pdb --dir_models /home/alejandroseco/Desktop/MMDR-main/Code/Output/models_pdb --dir_output /home/alejandroseco/Desktop/MMDR-main/Code/Output/bfactor_receptor --cutoff 5.0  
+# Define input/output paths (defaults to local directory or environment overrides)
+DATA_DIR="${DATA_DIR:-./data}"
+PDBQT_LIGS="${PDBQT_LIGS:-$DATA_DIR/all.pdbqt}"
+OUTPUT_PDB="${OUTPUT_PDB:-$DATA_DIR/all.pdb}"
+RECEPTOR="${RECEPTOR:-$DATA_DIR/receptor.pdb}"
+DIR_MODELS="${DIR_MODELS:-$DATA_DIR/models_pdb}"
+DIR_OUTPUT="${DIR_OUTPUT:-$DATA_DIR/bfactor_receptor}"
+CUTOFF="${CUTOFF:-5.0}"
 
+# Run Python script
+python ligand_energy_attribution_bfactor.py \
+    --pdbqt_ligs "$PDBQT_LIGS" \
+    --output_pdb "$OUTPUT_PDB" \
+    --receptor "$RECEPTOR" \
+    --dir_models "$DIR_MODELS" \
+    --dir_output "$DIR_OUTPUT" \
+    --cutoff "$CUTOFF"
 
-# ligand_energy_attribution_bfactor.py
-
-# Opcional: desactivar entorno al terminar
-# conda init bash
-conda deactivate
-
+# Deactivate environment
+conda deactivate 2>/dev/null || true

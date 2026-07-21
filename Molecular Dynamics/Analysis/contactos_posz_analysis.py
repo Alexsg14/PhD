@@ -68,7 +68,7 @@ if args.plot:
         smoothed_counts = moving_average(data, window_size)
         plt.plot(time_values[:len(smoothed_counts)], smoothed_counts, label=label, linestyle='-', marker='')
         plt.title(f"{label} Contactos a lo largo de la trayectoria")
-        plt.xlabel("Time ($\mu$S)")
+        plt.xlabel(r"Time ($\mu$s)")
         plt.ylabel("Número de contactos")
         plt.ylim(-1, None)
         plt.legend()
@@ -82,7 +82,7 @@ if args.plot:
         smoothed_counts = moving_average(data, window_size)
         plt.plot(time_values[:len(smoothed_counts)], smoothed_counts, label=label)
     plt.title("Contactos a lo largo de la trayectoria (Todos)")
-    plt.xlabel("Time ($\mu$S)")
+    plt.xlabel(r"Time ($\mu$s)")
     plt.ylabel("Número de contactos")
     plt.ylim(-1, None)
     plt.legend()
@@ -100,7 +100,7 @@ if args.plot:
         smoothed_data = moving_average(data, window_size)
         plt.plot(time_values[:len(smoothed_data)], smoothed_data, label=col)
     plt.title("Evolución de la posición en Z")
-    plt.xlabel("Time ($\mu$S)")
+    plt.xlabel(r"Time ($\mu$s)")
     plt.ylabel("Posición en Z (Å)")
     plt.legend()
     plt.grid(True)
@@ -255,7 +255,7 @@ for label, key in grouped_contacts.items():
     smoothed_counts = moving_average(contacts_data[key], window_size)
     plt.plot(time_values[:len(smoothed_counts)], smoothed_counts, label=label, linestyle='-', marker='')
     plt.title(f"{label} Contactos a lo largo de la trayectoria")
-    plt.xlabel("Time ($\mu$S)")
+    plt.xlabel(r"Time ($\mu$s)")
     plt.ylabel("Número de contactos")
     plt.ylim(-1, None)
     plt.legend()
@@ -268,7 +268,7 @@ for label, key in grouped_contacts.items():
     smoothed_counts = moving_average(contacts_data[key], window_size)
     plt.plot(time_values[:len(smoothed_counts)], smoothed_counts, label=label)
 plt.title("Contactos a lo largo de la trayectoria (Todos)")
-plt.xlabel("Time ($\mu$S)")
+plt.xlabel(r"Time ($\mu$s)")
 plt.ylabel("Número de contactos")
 plt.ylim(-1, None)
 plt.legend()
@@ -276,18 +276,14 @@ plt.grid(True)
 plt.savefig(os.path.join(result_dir, "contactos_grupos_smoothed_plot.png"))
 
 # Graficar evolución de posiciones en Z
-# Graficar evolución de posiciones en Z
-time_values = z_df.iloc[:, 0].values
 plt.figure(figsize=(10, 6))
-# Se asume que la primera columna es el tiempo
-for col in z_df.columns[1:]:
+for col, values in z_data.items():
     if col == "Membrane_Lower_Heads":
         continue
-    data = z_df[col].values
-    smoothed_data = moving_average(data, window_size)
+    smoothed_data = moving_average(values, window_size)
     plt.plot(time_values[:len(smoothed_data)], smoothed_data, label=col)
 plt.title("Evolución de la posición en Z")
-plt.xlabel("Time ($\mu$S)")
+plt.xlabel(r"Time ($\mu$s)")
 plt.ylabel("Posición en Z (Å)")
 plt.legend()
 plt.grid(True)

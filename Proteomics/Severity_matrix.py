@@ -21,10 +21,10 @@ df_text = pd.read_csv(text_path, sep="\t")
 
 # Limpiar el dataframe de texto para excluir filas con 'CONTROL' en el índice
 df_text_clean = df_text[~df_text['index'].str.contains('CONTROL')]
-df_text_clean['Patient_Number'] = df_text_clean['index'].str.extract('(\d+)').astype(int)
+df_text_clean['Patient_Number'] = df_text_clean['index'].str.extract(r'(\d+)').astype(int)
 
 # Extraer la parte numérica de las columnas clave en ambos dataframes
-df_excel['Patient_Number'] = df_excel['Código del paciente'].str.extract('(\d+)').astype(int)
+df_excel['Patient_Number'] = df_excel['Código del paciente'].str.extract(r'(\d+)').astype(int)
 
 # Combinar los dos dataframes en función del 'Patient_Number'
 merged_df = pd.merge(df_excel, df_text_clean, on='Patient_Number', how='inner')
