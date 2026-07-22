@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MD Simulation Dashboard</title>
+    <meta name="description" content="Real-time GROMACS molecular dynamics simulation monitoring dashboard">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧬</text></svg>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-annotation/3.0.1/chartjs-plugin-annotation.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.0.1/chartjs-plugin-zoom.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+    <script src="https://3Dmol.org/build/3Dmol-min.js"></script>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <!-- Header -->
+    <header id="main-header">
+        <div class="header-left">
+            <div class="logo-icon">🧬</div>
+            <div>
+                <h1>MD Simulation Monitor</h1>
+                <p class="subtitle">YAP–TEAD Equilibration & Production</p>
+            </div>
+        </div>
+        <div class="header-right">
+            <div class="connection-status" id="connection-status">
+                <span class="status-dot"></span>
+                <span class="status-text">Connecting...</span>
+            </div>
+            <div class="scan-timer" id="scan-timer">Next scan: --s</div>
+        </div>
+    </header>
+
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h2>Simulations</h2>
+                <span class="badge" id="active-count">0 active</span>
+            </div>
+            <div class="filter-bar">
+                <button class="filter-btn active" data-filter="all">All</button>
+                <button class="filter-btn" data-filter="running">Running</button>
+                <button class="filter-btn" data-filter="completed">Done</button>
+            </div>
+            <div class="systems-list" id="systems-list">
+                <div class="loading-placeholder">
+                    <div class="spinner"></div>
+                    <p>Scanning simulations...</p>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content" id="main-content">
+            <!-- Welcome screen -->
+            <div class="welcome-screen" id="welcome-screen">
+                <div class="welcome-icon">🔬</div>
+                <h2>Select a simulation</h2>
+                <p>Choose a system and replica from the sidebar to view real-time data</p>
+                <!-- Overview Grid -->
+                <div class="overview-grid" id="overview-grid"></div>
+            </div>
+
+            <!-- Detail view (hidden by default) -->
+            <div class="detail-view hidden" id="detail-view">
+                <!-- Top bar -->
+                <div class="detail-header" id="detail-header">
+                    <button class="back-btn" id="back-btn">← Back</button>
+                    <div class="detail-title">
+                        <h2 id="detail-system-name">--</h2>
+                        <span class="detail-step" id="detail-step">--</span>
+                    </div>
+                    <div class="detail-actions">
+                        <select id="step-selector" class="action-btn" style="background-color: var(--card-bg); border: 1px solid var(--border); color: var(--text-muted); cursor: pointer; padding: 4px 8px; border-radius: 4px;">
+                            <option value="active">Active Step</option>
+                        </select>
+                        <button class="action-btn" id="btn-open-global" title="Open Global Analysis View">🌐 Global View</button>
+                        <button class="action-btn" id="btn-refresh-analysis" title="Refresh Analysis">⟳ Analysis</button>
+                        <button class="action-btn" id="btn-refresh-pdb" title="Refresh 3D View">⟳ 3D View</button>
+                        <button class="action-btn" id="btn-play-viewer" title="Play Animation">▶ Play</button>
+                    </div>
+                </div>
+
+                <!-- Progress Section -->
+                <div class="progress-section" id="progress-section">
+                    <div class="progress-info">
+                        <div class="progress-stat">
+                            <span class="stat-label">Step Progress</span>
+                            <span class="stat-value" id="stat-step-progress">--%</span>
+                        </div>
+                        <div class="progress-stat">
+                            <span class="stat-label">Current Step</span>
+                            <span class="stat-value" id="stat-current-step">--</span>
+                        </div>
+                        <div class="progress-stat">
+                            <span class="stat-label">Overall</span>
+                            <span class="stat-value" id="stat-overall">--%</span>
+                        </div>
+                        <div class="progress-stat">
+                            <span class="stat-label">Phase</span>
+                            <span class="stat-value" id="stat-phase">--</span>
+                        </div>
+                        <div class="progress-stat" style="flex: 2; min-width: 150px;">
+                            <span class="stat-label">Position Restraints</span>
+                            <span class="stat-value" id="stat-posres" style="font-size: 0.85rem; color: var(--text-muted);">--</span>
+                        </div>
+                        <div class="progress-stat">
+                            <span class="stat-label">Speed (recent)</span>
+                            <span class="stat-value" id="stat-ns-per-day-recent" style="color: var(--green);">-- ns/day</span>
+                        </div>
+                        <div class="progress-stat">
+                            <span class="stat-label">Speed (avg)</span>
+                            <span class="stat-value" id="stat-ns-per-day-avg" style="color: var(--cyan);">-- ns/day</span>
+                        </div>
+                        <div class="progress-stat">
+                            <span class="stat-label">Time (Step)</span>
+                            <span class="stat-value" id="stat-step-time">--h</span>
+                        </div>
+                        <div class="progress-stat">
+                            <span class="stat-label">Time (Compute)</span>
+                            <span class="stat-value" id="stat-total-time">--h</span>
+                        </div>
+                        <div class="progress-stat">
+                            <span class="stat-label">Time (Calendar)</span>
+                            <span class="stat-value" id="stat-calendar-time">--h</span>
+                        </div>
+                    </div>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar" id="progress-bar" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <!-- Content Grid -->
+                <div class="content-grid">
+                    <!-- 3D Viewer -->
+                    <div class="card viewer-card" id="viewer-card">
+                        <div class="card-header">
+                            <h3>3D Structure</h3>
+                            <span class="card-badge" id="viewer-badge">No data</span>
+                        </div>
+                        <div id="mol-viewer" class="mol-viewer">
+                            <div class="viewer-placeholder">
+                                <p>Click "⟳ 3D View" to load structure</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Energy Panel (from .log) -->
+                    <div class="card energy-card">
+                        <div class="card-header">
+                            <h3>Energies (from .log)</h3>
+                            <span class="card-badge" id="energy-badge">--</span>
+                        </div>
+                        <div class="energy-grid">
+                            <div class="energy-item flip-container" onclick="flipEnergyCard('card-temperature')">
+                                <div class="flipper" id="card-temperature">
+                                    <div class="front">
+                                        <span class="energy-label">Temperature</span>
+                                        <span class="energy-value" id="val-temperature">-- K</span>
+                                    </div>
+                                    <div class="back" onclick="event.stopPropagation()">
+                                        <div class="back-header">
+                                            <span class="energy-label">Temperature</span>
+                                            <button class="flip-back-btn" onclick="flipEnergyCard('card-temperature', event)">✕</button>
+                                        </div>
+                                        <div class="mini-energy-chart">
+                                            <canvas id="mini-chart-temperature"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="energy-item flip-container" onclick="flipEnergyCard('card-pressure')">
+                                <div class="flipper" id="card-pressure">
+                                    <div class="front">
+                                        <span class="energy-label">Pressure</span>
+                                        <span class="energy-value" id="val-pressure">-- bar</span>
+                                    </div>
+                                    <div class="back" onclick="event.stopPropagation()">
+                                        <div class="back-header">
+                                            <span class="energy-label">Pressure</span>
+                                            <button class="flip-back-btn" onclick="flipEnergyCard('card-pressure', event)">✕</button>
+                                        </div>
+                                        <div class="mini-energy-chart">
+                                            <canvas id="mini-chart-pressure"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="energy-item flip-container" onclick="flipEnergyCard('card-potential')">
+                                <div class="flipper" id="card-potential">
+                                    <div class="front">
+                                        <span class="energy-label">Potential</span>
+                                        <span class="energy-value" id="val-potential">--</span>
+                                    </div>
+                                    <div class="back" onclick="event.stopPropagation()">
+                                        <div class="back-header">
+                                            <span class="energy-label">Potential</span>
+                                            <button class="flip-back-btn" onclick="flipEnergyCard('card-potential', event)">✕</button>
+                                        </div>
+                                        <div class="mini-energy-chart">
+                                            <canvas id="mini-chart-potential"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="energy-item flip-container" onclick="flipEnergyCard('card-total-energy')">
+                                <div class="flipper" id="card-total-energy">
+                                    <div class="front">
+                                        <span class="energy-label">Total Energy</span>
+                                        <span class="energy-value" id="val-total-energy">--</span>
+                                    </div>
+                                    <div class="back" onclick="event.stopPropagation()">
+                                        <div class="back-header">
+                                            <span class="energy-label">Total Energy</span>
+                                            <button class="flip-back-btn" onclick="flipEnergyCard('card-total-energy', event)">✕</button>
+                                        </div>
+                                        <div class="mini-energy-chart">
+                                            <canvas id="mini-chart-total-energy"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mini-chart-container">
+                            <canvas id="chart-temperature-main"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- RMSD Chart -->
+                    <div class="card chart-card">
+                        <div class="card-header">
+                            <h3>RMSD (Aligned)</h3>
+                            <span class="card-badge" id="rmsd-badge">--</span>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="chart-rmsd"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Rg Chart -->
+                    <div class="card chart-card">
+                        <div class="card-header">
+                            <h3>Radius of Gyration</h3>
+                            <span class="card-badge" id="rg-badge">--</span>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="chart-rg"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- CoM Distance Chart -->
+                    <div class="card chart-card">
+                        <div class="card-header">
+                            <h3>Distances CoM (C-Alfa/Lig)</h3>
+                            <span class="card-badge" id="com-badge">--</span>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="chart-com"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Contacts Chart -->
+                    <div class="card chart-card">
+                        <div class="card-header">
+                            <h3>Contacts &lt;5&Aring; (C-Alfa/Lig)</h3>
+                            <span class="card-badge" id="contacts-badge">--</span>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="chart-contacts"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Free Energy Landscape -->
+                    <div class="card chart-card fel-card">
+                        <div class="card-header">
+                            <h3>Free Energy Landscape</h3>
+                            <span class="card-badge" id="fel-badge">--</span>
+                        </div>
+                        <div class="chart-container fel-container">
+                            <div id="chart-fel" style="width:100%; height:100%;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Full Trajectory View -->
+            <div class="full-traj-view hidden" id="full-traj-view">
+                <div class="detail-header" id="full-detail-header">
+                    <button class="back-btn" id="back-btn-full">← Back to Details</button>
+                    <div class="detail-title">
+                        <h2 id="full-system-name">--</h2>
+                        <span class="detail-step">Global Full Trajectory Analysis</span>
+                    </div>
+                    <div class="detail-actions">
+                        <button class="action-btn" id="btn-refresh-full" title="Refresh Full Analysis">⟳ Refresh</button>
+                    </div>
+                </div>
+                <div class="content-grid" style="grid-template-columns: repeat(2, 1fr);">
+                    <div class="card chart-card">
+                        <div class="card-header">
+                            <h3>RMSD (Aligned)</h3>
+                            <span class="card-badge" id="rmsd-badge-full">--</span>
+                        </div>
+                        <div class="chart-container"><canvas id="chart-rmsd-full"></canvas></div>
+                    </div>
+                    <div class="card chart-card">
+                        <div class="card-header">
+                            <h3>Radius of Gyration</h3>
+                            <span class="card-badge" id="rg-badge-full">--</span>
+                        </div>
+                        <div class="chart-container"><canvas id="chart-rg-full"></canvas></div>
+                    </div>
+                    <div class="card chart-card">
+                        <div class="card-header">
+                            <h3>Distances CoM (C-Alfa/Lig)</h3>
+                            <span class="card-badge" id="com-badge-full">--</span>
+                        </div>
+                        <div class="chart-container"><canvas id="chart-com-full"></canvas></div>
+                    </div>
+                    <div class="card chart-card">
+                        <div class="card-header">
+                            <h3>Contacts <5Å (C-Alfa/Lig)</h3>
+                            <span class="card-badge" id="contacts-badge-full">--</span>
+                        </div>
+                        <div class="chart-container"><canvas id="chart-contacts-full"></canvas></div>
+                    </div>
+                    <!-- Free Energy Landscape (full) -->
+                    <div class="card chart-card fel-card">
+                        <div class="card-header">
+                            <h3>Free Energy Landscape</h3>
+                            <span class="card-badge" id="fel-badge-full">--</span>
+                        </div>
+                        <div class="chart-container fel-container">
+                            <div id="chart-fel-full" style="width:100%; height:100%;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="/static/app.js?v=2"></script>
+</body>
+</html>
