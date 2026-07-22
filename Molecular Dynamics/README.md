@@ -60,3 +60,25 @@ Reads PLUMED 2D `fesd1d2.dat` files alongside 1D block-averaged `CV1_BA.dat` fil
 
 ### 4. Automated Trajectory Pre-processing (`Analysis/trajectory_treatment_analysis_execution.sh`)
 SLURM job script for pre-processing GROMACS trajectories (concatenation, frame skipping, PBC cluster treatment, and `nojump` correction) before running contact analysis.
+
+---
+
+### 5. Automated VMD Rendering & Custom Styles (`VMD/`)
+Automates high-quality image and video rendering using VMD (Visual Molecular Dynamics) and the Tachyon ray tracer.
+- **`run_vmd_render.py`**: Python launcher script to execute VMD in text-only mode (`-dispdev text`) with a given structure and render script.
+- **`RENDER_VMD.tcl`**: Master Tcl script containing custom rendering routines (`giro`, `video`, `make_movie`, `pic`, `obj`, `double`).
+- **Style Scripts**:
+  - `materials.tcl`: Adds custom materials like `RealWater` with realistic opacity and shininess.
+  - `style_vmd.tcl` / `Alex_style.tcl` / `style_yt.tcl`: Customized cartoon/licorice/surf styles for atom selections.
+  - `style_vmd_martini.tcl` / `style_vmd_martini_peptidomica.tcl`: Tailored colors and representations for Martini coarse-grained topologies.
+  - `style_vmd_docking.tcl`: Colors chains and poses to visualize docking orientations.
+  - `style_vmd_RMSD.tcl`: Maps RMSD fluctuations to color scales.
+
+**Usage:**
+```bash
+python VMD/run_vmd_render.py \
+    --render-tcl VMD/RENDER_VMD.tcl \
+    --pdb MIN_FRAME2.pdb \
+    --do pic \
+    --out-dir _RENDERS
+```

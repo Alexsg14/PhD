@@ -162,6 +162,7 @@ Located in [`Molecular Dynamics/`](./Molecular%20Dynamics/):
 - **`Spin_scripts/block_average.py`**: Implementation of Flyvbjerg-Petersen block averaging to estimate standard errors on time-correlated MD data.
 - **`Spin_scripts/pmf_analysis.py`**: 2D Free Energy Surface (FES) & Potential of Mean Force (PMF) contour map visualizer.
 - **`Spin_scripts/afinador_minimos.sh`**: Automated extraction of energy minima structures from COLVAR trajectories.
+- **`VMD/`**: Automated script (`run_vmd_render.py`), master TCL controller (`RENDER_VMD.tcl`), and custom visualization styles (Martini coarse-grained membranes, docking poses, water opacity) to render high-quality graphics and videos in VMD using Tachyon.
 
 ### Proteomics Processing
 Located in [`Proteomics/`](./Proteomics/):
