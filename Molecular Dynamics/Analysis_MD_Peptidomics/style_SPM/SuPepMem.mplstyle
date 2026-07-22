@@ -1,0 +1,71 @@
+axes.titlesize  : 25
+axes.labelsize  : 25
+axes.autolimit_mode : round_numbers
+axes.axisbelow      : False   # whether axis gridlines and ticks are below
+                              # the axes elements (lines, text, etc)
+axes.xmargin        : 0  # x margin.  See `axes.Axes.margins`
+axes.ymargin        : 0  # y margin See `axes.Axes.margins`
+axes.formatter.useoffset      : False    # If True, the tick label formatter
+                                        # will default to labeling ticks relative
+                                        # to an offset when the data range is very
+                                        # small compared to the minimum absolute
+                                        # value of the data.
+
+legend.fontsize      : 14
+										
+xtick.top            : True   # draw ticks on the top side
+xtick.bottom         : True   # draw ticks on the bottom side
+xtick.major.size     : 8      # major tick size in points
+xtick.minor.size     : 4      # minor tick size in points
+xtick.minor.visible  : True
+xtick.major.width    : 0.5    # major tick width in points
+xtick.minor.width    : 0.5    # minor tick width in points
+xtick.major.pad      : 4      # distance to major tick label in points
+xtick.minor.pad      : 4      # distance to the minor tick label in points
+xtick.color          : k      # color of the tick labels
+xtick.labelsize      : 20 # fontsize of the tick labels
+xtick.direction      : in     # direction: in, out, or inout
+xtick.major.top      : True   # draw x axis top major ticks
+xtick.major.bottom   : True   # draw x axis bottom major ticks
+xtick.minor.top      : True   # draw x axis top minor ticks
+xtick.minor.bottom   : True   # draw x axis bottom minor ticks
+xtick.alignment : center
+
+ytick.left           : True   # draw ticks on the left side
+ytick.right          : True   # draw ticks on the right side
+ytick.major.size     : 8      # major tick size in points
+ytick.minor.size     : 4      # minor tick size in points
+ytick.minor.visible  : True
+ytick.major.width    : 0.5    # major tick width in points
+ytick.minor.width    : 0.5    # minor tick width in points
+ytick.major.pad      : 4      # distance to major tick label in points
+ytick.minor.pad      : 4      # distance to the minor tick label in points
+ytick.color          : k      # color of the tick labels
+ytick.labelsize      : 20 # fontsize of the tick labels
+ytick.direction      : in     # direction: in, out, or inout
+ytick.major.left     : True   # draw y axis left major ticks
+ytick.major.right    : True   # draw y axis right major ticks
+ytick.minor.left     : True   # draw y axis left minor ticks
+ytick.minor.right    : True   # draw y axis right minor ticks
+ytick.alignment      : center
+
+axes.prop_cycle: cycler('color', ['0.00', '0.40', '0.60', '0.70'])
+#image.cmap: gray
+lines.color: black
+patch.facecolor: gray
+patch.edgecolor: black
+
+savefig.dpi		: 200
+
+font.family     : DIN Condensed
+#font.serif      : DIN Condensed
+#text.usetex : True
+mathtext.fontset : custom
+#mathtext.rm : stix
+mathtext.rm : DIN Condensed
+mathtext.it : serif:italic
+mathtext.default : regular
+
+# errorbar props
+errorbar.capsize: 3
+hatch.linewidth: 8

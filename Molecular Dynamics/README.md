@@ -8,16 +8,16 @@ This directory contains analytical scripts, trajectory manipulation utilities, a
 
 ```
 Molecular Dynamics/
-├── Analysis/
-│   ├── contactos_posz_analysis.py            # Main contact & Z-position trajectory analyzer
-│   ├── contactos_posz.py                     # Legacy contact script
-│   └── trajectory_treatment_analysis_execution.sh # SLURM batch execution script
+├── Analysis_MD_Peptidomics/                  # Coarse-grained peptide-membrane analysis tools
+│   ├── modular_analysis.py                   # Calculates tilt, azimuth, roll, contacts, and Z positions
+│   ├── SPM_Analysis.py                       # Physical properties (leaflet area, dipoles, density maps)
+│   ├── trajectory_processing.sh              # GROMACS trajectory pre-processing pipeline
+│   └── peptidomic_analysis.sh                # Script wrapper for modular_analysis.py
 ├── Spin_scripts/
 │   ├── block_average.py                      # Block average statistical uncertainty tool
 │   ├── pmf_analysis.py                       # 2D Potential of Mean Force (PMF) visualizer
 │   └── afinador_minimos.sh                   # Minima finder shell script
 ├── PMFs/                                     # Output directory for PMF plots and dat files
-├── COVID_analysis/                           # COVID protein analysis scripts
 └── VMD/                                      # Tcl & Python scripts for VMD rendering
 ```
 
@@ -25,25 +25,28 @@ Molecular Dynamics/
 
 ## 🛠️ Main Tools & Scripts
 
-### 1. Trajectory Contact & Z-Position Analysis (`Analysis/contactos_posz_analysis.py`)
-Analyzes GROMACS `.xtc` trajectories and `.pdb` structures using `MDAnalysis` to calculate:
-- Inter-molecular contact counts between peptides, lipid headgroups, micelle tails, and water over time.
-- Z-axis center-of-mass positions of peptide monomers relative to the membrane center using Minimum Image Convention (MIC).
+### 1. Peptidomics Trajectory Analysis (`Analysis_MD_Peptidomics/modular_analysis.py`)
+Analyzes coarse-grained (Martini) trajectories and structures to calculate:
+- Orientation angles (tilt, azimuth, and rolling angle).
+- Z-axis center-of-mass positions of peptide monomers relative to the membrane center.
+- Inter-molecular contact counts between peptides, lipid headgroups, and water.
 
 **Usage:**
 ```bash
 # Process trajectory and output CSVs & plots
-python Analysis/contactos_posz_analysis.py \
-    -pdb_file trajectory.pdb \
-    -xtc_file trajectory.xtc \
-    -skip 10 \
-    -folder Results_Dir
+python Analysis_MD_Peptidomics/modular_analysis.py \
+    -top md.tpr \
+    -traj traj_skip100.xtc \
+    --analyses tilt rolling zcontacts \
+    --rolling_skip 10 \
+    -out Results_Dir
 
 # Re-generate plots from pre-computed CSV files
-python Analysis/contactos_posz_analysis.py \
+python Analysis_MD_Peptidomics/modular_analysis.py \
     -plot \
-    -csv Results_Dir \
-    -folder Results_Dir
+    -csv_dir Results_Dir \
+    -out Results_Dir \
+    --do_all_plots
 ```
 
 ---
@@ -58,7 +61,7 @@ Reads PLUMED 2D `fesd1d2.dat` files alongside 1D block-averaged `CV1_BA.dat` fil
 
 ---
 
-### 4. Automated Trajectory Pre-processing (`Analysis/trajectory_treatment_analysis_execution.sh`)
+### 4. Automated Trajectory Pre-processing (`Analysis_MD_Peptidomics/trajectory_processing.sh`)
 SLURM job script for pre-processing GROMACS trajectories (concatenation, frame skipping, PBC cluster treatment, and `nojump` correction) before running contact analysis.
 
 ---
