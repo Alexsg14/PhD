@@ -7,13 +7,13 @@ This folder contains a suite of Bash and Python scripts designed to analyze, mon
 ## 📂 Folder Contents
 
 ### 1. Bash Master Scripts (Command-Line Entrypoints)
-*   **[`hills.sh`](file:///home/ciqus/GIT/Github_Personal/PhD/Molecular%20Dynamics/PMFs/hills.sh)**: The primary master script for 1D FES/PMF workflows. It wraps python execution to generate FES curve evolution plots, restricted Region of Interest (ROI) fits, PMF profiles, and integrates areas to calculate $\Delta G$.
-*   **[`hills_2D.sh`](file:///home/ciqus/GIT/Github_Personal/PhD/Molecular%20Dynamics/PMFs/hills_2D.sh)**: Staging master script adjusted for 2D Metadynamics reconstructions.
+*   **[`master_hills.sh`](file:///home/ciqus/GIT/Github_Personal/PhD/Molecular%20Dynamics/PMFs/master_hills.sh)**: The primary master script for 1D FES/PMF workflows. It wraps python execution to generate FES curve evolution plots, restricted Region of Interest (ROI) fits, PMF profiles, and integrates areas to calculate $\Delta G$.
+*   **[`master_hills_2D.sh`](file:///home/ciqus/GIT/Github_Personal/PhD/Molecular%20Dynamics/PMFs/master_hills_2D.sh)**: Staging master script adjusted for 2D Metadynamics reconstructions.
 *   **[`blocks_analysis.sh`](file:///home/ciqus/GIT/Github_Personal/PhD/Molecular%20Dynamics/PMFs/blocks_analysis.sh)**: Automates the execution of comparative block analysis over multiple segments of your trajectory.
 *   **[`manual_hills.sh`](file:///home/ciqus/GIT/Github_Personal/PhD/Molecular%20Dynamics/PMFs/manual_hills.sh)**: A simple runner script for quick testing and manual debugging of specific systems.
 
 ### 2. Processing & Plotting Engines (Python)
-*   **[`hills_video.py`](file:///home/ciqus/GIT/Github_Personal/PhD/Molecular%20Dynamics/PMFs/hills_video.py)**: The core 1D rendering engine. It handles:
+*   **[`hills_analysis.py`](file:///home/ciqus/GIT/Github_Personal/PhD/Molecular%20Dynamics/PMFs/hills_analysis.py)**: The core 1D rendering engine. It handles:
     *   FES curve reconstruction from cumulative hills.
     *   Outputting static FES images (`fes.png`, `fes_trail_.png`).
     *   Compiling trajectory videos/animations (e.g. `fes_movie.mp4` or gradient-style evolutions) using `ffmpeg`.
@@ -25,7 +25,7 @@ This folder contains a suite of Bash and Python scripts designed to analyze, mon
 *   **[`hills_live.py`](file:///home/ciqus/GIT/Github_Personal/PhD/Molecular%20Dynamics/PMFs/hills_live.py)**: A utility script to monitor the active simulation's FES profile in real-time.
 
 ### 3. Legacy / Archival
-*   **`hills_alicia.py`**: An older predecessor of `hills_video.py`, retained only for compatibility and historical reference.
+*   **`hills_alicia.py`**: An older predecessor of `hills_analysis.py`, retained only for compatibility and historical reference.
 
 ---
 
@@ -40,7 +40,7 @@ By default, the scripts point to the cluster storage directory:
 To run analyses on a different path (e.g., local folders or another server partition), export the `PMF_BASE_PATH` environment variable in your shell:
 ```bash
 export PMF_BASE_PATH="/home/user/my_simulations"
-./hills.sh
+./master_hills.sh
 ```
 
 ---
@@ -50,7 +50,7 @@ export PMF_BASE_PATH="/home/user/my_simulations"
 ### 1. Generating standard 1D FES profiles and movies
 Runs reconstruction over the `HILLS_WT` file, fits plots to the region of interest, and generates animation MP4 files:
 ```bash
-./hills.sh HILLS_WT output_folder --movie --limits
+./master_hills.sh HILLS_WT output_folder --movie --limits
 ```
 
 ### 2. Evaluating collective variable convergence

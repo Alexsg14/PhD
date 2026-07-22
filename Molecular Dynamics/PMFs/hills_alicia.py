@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# python ../../hills_video.py HILLS PMF_FOLDER/
+# python ../../hills_analysis.py HILLS PMF_FOLDER/
 import sys
 import os
 import subprocess

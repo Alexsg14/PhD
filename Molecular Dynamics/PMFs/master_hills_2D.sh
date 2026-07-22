@@ -103,7 +103,7 @@ output="${f}/TODO_PMF"
 # python 2D_hills.py $f/$h $output --all --fes-wt #--movie
 # python 2D_hills.py $f/$h $output --movie-subplots
 
-# python hills_video.py $f/$h $output --pmf #---------> CUANDO TENGA PLATEAU
+# python hills_analysis.py $f/$h $output --pmf #---------> CUANDO TENGA PLATEAU
 
 
 path="${PMF_BASE_PATH:-/mnt/netapp1/RES_SuPepMem/ALEX/_PMF_Peptidomica}"
@@ -123,7 +123,7 @@ python 2D_hills.py $f/$h $output --subplots --1d #--movie
 
 # python 2D_hills.py $f/$h $output --movie-subplots
 
-# python hills_video.py $f/$h $output --pmf #---------> CUANDO TENGA PLATEAU
+# python hills_analysis.py $f/$h $output --pmf #---------> CUANDO TENGA PLATEAU
 
 
 
@@ -144,7 +144,7 @@ output="${f}/TODO_PMF"
 
 # python 2D_hills.py $f/$h $output --movie-subplots
 
-# python hills_video.py $f/$h $output --pmf #---------> CUANDO TENGA PLATEAU
+# python hills_analysis.py $f/$h $output --pmf #---------> CUANDO TENGA PLATEAU
 
 
 
@@ -167,4 +167,4 @@ python 2D_hills.py $f/$h $output --subplots --1d #--movie
 
 # python 2D_hills.py $f/$h $output --movie-subplots
 
-# python hills_video.py $f/$h $output --pmf #---------> CUANDO TENGA PLATEAU
+# python hills_analysis.py $f/$h $output --pmf #---------> CUANDO TENGA PLATEAU
