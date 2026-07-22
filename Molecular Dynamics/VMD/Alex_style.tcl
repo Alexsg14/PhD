@@ -59,14 +59,16 @@ proc style_alex {rep} {
         mol material AOChalky;
         mol color ColorID 23;
         mol addrep top;
-        mol smoothrep $rep 0 0;
+        set nrep [expr {[molinfo $rep get numreps] - 1}]
+        mol smoothrep $rep $nrep 0;
         
         mol selection "resname 0GB";
         mol representation Licorice 0.3 32;
         mol material AOEdgy;
         mol color ColorID 1;
         mol addrep top;
-        mol smoothrep $rep 1 0;
+        set nrep [expr {[molinfo $rep get numreps] - 1}]
+        mol smoothrep $rep $nrep 0;
         
         
         mol selection "index 168";
@@ -74,21 +76,22 @@ proc style_alex {rep} {
         mol material BrushedMetal;
         mol color ColorID 20;
         mol addrep top;
-        mol smoothrep $rep 2 0;
+        set nrep [expr {[molinfo $rep get numreps] - 1}]
+        mol smoothrep $rep $nrep 0;
         
         mol selection "index 176";
         mol representation Licorice 0.6 32;
         mol material BrushedMetal;
         mol color ColorID 26;
         mol addrep top;
-        mol smoothrep $rep 3 0;
+        set nrep [expr {[molinfo $rep get numreps] - 1}]
+        mol smoothrep $rep $nrep 0;
         
         mol selection "index 181";
         mol representation Licorice 0.6 32;
         mol material BrushedMetal;
         mol color ColorID 32;
         mol addrep top;
-        mol smoothrep $rep 4 0;
-        
-        
+        set nrep [expr {[molinfo $rep get numreps] - 1}]
+        mol smoothrep $rep $nrep 0;
 }

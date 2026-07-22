@@ -49,8 +49,9 @@ proc style_docking {} {
 		mol material AOChalky;
 		mol color ColorID 0; # Azul
 		mol addrep 0;
-		mol smoothrep 0 0 7;
-		mol showrep 0 0 on;
+		set nrep [expr {[molinfo 0 get numreps] - 1}]
+		mol smoothrep 0 $nrep 7;
+		mol showrep 0 $nrep on;
 		
 		# Chain B
 		mol selection "chain B";
@@ -58,8 +59,9 @@ proc style_docking {} {
 		mol material AOChalky;
 		mol color ColorID 1; # Rojo
 		mol addrep 0;
-		mol smoothrep 0 1 7;
-		mol showrep 0 1 on;
+		set nrep [expr {[molinfo 0 get numreps] - 1}]
+		mol smoothrep 0 $nrep 7;
+		mol showrep 0 $nrep on;
 	}
 
 	# ============================================================
@@ -74,8 +76,9 @@ proc style_docking {} {
 		mol material AOChalky;
 		mol color ColorID 1; # Rojo (Igual que chain B)
 		mol addrep 1;
-		mol smoothrep 1 0 7;
-		mol showrep 1 0 on;
+		set nrep [expr {[molinfo 1 get numreps] - 1}]
+		mol smoothrep 1 $nrep 7;
+		mol showrep 1 $nrep on;
 	}
 
 	# ============================================================
@@ -90,8 +93,9 @@ proc style_docking {} {
 		mol material AOChalky; # O BrushedMetal
 		mol color Name; # Colorea por elemento (O, N, C...)
 		mol addrep 2;
-		mol smoothrep 2 0 7;
-		mol showrep 2 0 on;
+		set nrep [expr {[molinfo 2 get numreps] - 1}]
+		mol smoothrep 2 $nrep 7;
+		mol showrep 2 $nrep on;
 	}
 
 	# Hacemos que mol 0 sea el "Top" (T toggle) y centramos la camara en el

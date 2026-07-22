@@ -74,8 +74,8 @@ proc style_yt {rep} {
 	mol showrep $rep $nrep on;
         
         mol selection "chain B";
-        mol representation Opaque  4.5 0.3 32;
-        mol material ;
+        mol representation NewCartoon 0.3 32;
+        mol material Opaque;
         mol color ColorID 23;
         mol addrep top;
 	set nrep [expr {[molinfo $rep get numreps] - 1}]
