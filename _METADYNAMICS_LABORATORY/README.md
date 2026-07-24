@@ -12,26 +12,26 @@ Interactive web-based simulation environment and analysis tool for **1D & 2D Met
 ## 🌟 Key Features
 
 ### 1. 🧪 1D & 2D Interactive Metadynamics Simulators
-- **Global Mode Switcher**: Easily toggle between **1D Simulator (CV_x)**, **2D Simulator (CV_x, CV_y)**, and **HILLS Visualizer (PLUMED)** from the top navigation bar.
-- **Overdamped Langevin (Brownian) Dynamics**: Simulates particle diffusion over 1D and 2D energy landscapes with thermal noise generated via independent **Box-Muller Gaussian distributions** \(\mathcal{N}(0, 1)\).
+- **Global Mode Switcher**: Easily toggle between **1D Simulator ($CV_x$)**, **2D Simulator ($CV_x$, $CV_y$)**, and **HILLS Visualizer (PLUMED)** from the top navigation bar.
+- **Overdamped Langevin (Brownian) Dynamics**: Simulates particle diffusion over 1D and 2D energy landscapes with thermal noise generated via independent **Box-Muller Gaussian distributions** $\mathcal{N}(0, 1)$.
 - **Flexible Potential Energy Surfaces (PES)**:
   - **Gaussian Wells Editor**: Interactively add, remove, and adjust positions and depths of potential wells in 1D and 2D space.
-  - **Custom Mathematical Functions \(V(x)\) & \(V(x, y)\)**: Define custom energy surfaces using a safe parser supporting variables `x` and `y`, math functions (`sin`, `cos`, `tan`, `exp`, `log`, `sqrt`, `abs`), constants (`pi`, `e`), and presets (Symmetric 4-Well, Asymmetric 2D Double Well, Egg-Carton Periodic, Concentric Ring, Mueller-Brown Potential).
+  - **Custom Mathematical Functions $V(x)$ & $V(x, y)$**: Define custom energy surfaces using a safe parser supporting variables `x` and `y`, math functions (`sin`, `cos`, `tan`, `exp`, `log`, `sqrt`, `abs`), constants (`pi`, `e`), and presets (Symmetric 4-Well, Asymmetric 2D Double Well, Egg-Carton Periodic, Concentric Ring, Mueller-Brown Potential).
 - **High-Performance 2D Canvas Heatmap Renderer**:
-  - Renders smooth 2D energy landscape heatmaps (\(V\), \(V+V_B\), \(V_B\), \(F_{est}\)) with scientific color gradients (Inferno / Viridis / Spectral).
+  - Renders smooth 2D energy landscape heatmaps ($V$, $V+V_B$, $V_B$, $F_{\text{est}}$) with scientific color gradients (Inferno / Viridis / Spectral).
   - Real-time 2D trajectory path tracing and glowing particle marker.
   - Click anywhere on the 2D canvas to relocate the walker particle.
 - **Metadynamics Algorithms**:
   - **Standard Metadynamics**: Constant height Gaussian deposition over time.
-  - **Well-Tempered Metadynamics (WT-MetaD)**: Dynamic Gaussian height scaling based on accumulated bias potential \(W(t) = W_0 \exp\left(-\frac{V_B(x,y)}{\Delta T}\right)\).
-  - **Real-Time Free Energy Reconstruction**: Live calculation and rendering of estimated Free Energy Surfaces \(F_{est}(x)\) and \(F_{est}(x, y)\).
+  - **Well-Tempered Metadynamics (WT-MetaD)**: Dynamic Gaussian height scaling based on accumulated bias potential $W(t) = W_0 \exp\left(-\frac{V_B(x,y)}{\Delta T}\right)$.
+  - **Real-Time Free Energy Reconstruction**: Live calculation and rendering of estimated Free Energy Surfaces $F_{\text{est}}(x)$ and $F_{\text{est}}(x, y)$.
 
 ### 2. 📊 PLUMED HILLS Visualizer & Inspector (`HillsVisualizer`)
 - **Background Web Worker Architecture**: Offloads 100% of large text file line splitting, token parsing, and gaussian summation calculations to a background thread. UI never freezes, eliminating "Page Unresponsive" browser dialogs.
-- **60 FPS Real-Time FES Animation**: Pre-calculates 100 timeline grid frames incrementally in the worker thread. Playing or scrubbing the time slider renders the evolving Free Energy Surface \(F(s, t)\) smoothly at 60 FPS in real time.
+- **60 FPS Real-Time FES Animation**: Pre-calculates 100 timeline grid frames incrementally in the worker thread. Playing or scrubbing the time slider renders the evolving Free Energy Surface $F(s, t)$ smoothly at 60 FPS in real time.
 - **Drag & Drop File Upload**: Drag any PLUMED `HILLS` file directly onto the web application window for instant parsing with a visual drop target overlay.
-- **Energy Display Modes**: Switch between **Direct Absolute Potential** \(F(s) = -V(s)\) and **Relative Potential** (\(F_{\min} = 0\)).
-- **Well-Tempered Scaling & Custom Bias Factor**: Automatically detects or allows custom input for bias factor \(\gamma\), applying WT scaling \(\frac{\gamma}{\gamma - 1}\).
+- **Energy Display Modes**: Switch between **Direct Absolute Potential** $F(s) = -V(s)$ and **Relative Potential** ($F_{\min} = 0$).
+- **Well-Tempered Scaling & Custom Bias Factor**: Automatically detects or allows custom input for bias factor $\gamma$, applying WT scaling $\frac{\gamma}{\gamma - 1}$.
 - **PLUMED `fes.dat` Export**: One-click export of reconstructed FES grid files compatible with PLUMED `sum_hills` format.
 - **Multi-Stage Convergence Analysis**: Superimposes FES profiles at 25%, 50%, 75%, and 100% completion to visually assess free energy convergence.
 
