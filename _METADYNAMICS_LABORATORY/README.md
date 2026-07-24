@@ -1,4 +1,4 @@
-# Metadynamics Web Laboratory (`_METADYN_WEB`)
+# Metadynamics Laboratory (`_METADYNAMICS_LABORATORY`)
 
 [![React 19](https://img.shields.io/badge/React-19-blue.svg)](https://react.dev/)
 [![Vite 7](https://img.shields.io/badge/Vite-7-purple.svg)](https://vitejs.dev/)
@@ -52,10 +52,10 @@ Interactive web-based simulation environment and analysis tool for **1D & 2D Met
 
 > [!IMPORTANT]
 > **Execution Options**:
-> - **Pre-configured App (`_METADYN_WEB/metadyn_web`)**: The repository includes the complete, fully-functional web application with all simulation and visualizer features. Simply run `cd _METADYN_WEB/metadyn_web && npm install && npm run dev`.
-> - **Automated Generator Script (`_METADYN_WEB/metadyn_web.sh`)**: Initializes a new standalone project from scratch, automatically installs all dependencies (`react`, `vite`, `tailwindcss`, `recharts`, `lucide-react`), configures PostCSS/Tailwind, and embeds all components without extra manual setup.
+> - **Pre-configured App (`_METADYNAMICS_LABORATORY/metadynamics_laboratory`)**: The repository includes the complete, fully-functional web application with all simulation and visualizer features. Simply run `cd _METADYNAMICS_LABORATORY/metadynamics_laboratory && npm install && npm run dev`.
+> - **Automated Generator Script (`_METADYNAMICS_LABORATORY/metadynamics_laboratory.sh`)**: Initializes a new standalone project from scratch, automatically installs all dependencies (`react`, `vite`, `tailwindcss`, `recharts`, `lucide-react`), configures PostCSS/Tailwind, and embeds all components without extra manual setup.
 >   ```bash
->   ./metadyn_web.sh [nombre_proyecto]
+>   ./metadynamics_laboratory.sh [nombre_proyecto]
 >   ```
 
 ### 1. Run Locally
@@ -63,7 +63,7 @@ Interactive web-based simulation environment and analysis tool for **1D & 2D Met
 Navigate to the application folder and install dependencies:
 
 ```bash
-cd _METADYN_WEB/metadyn_web
+cd _METADYNAMICS_LABORATORY/metadynamics_laboratory
 npm install
 ```
 
@@ -77,7 +77,7 @@ Open your browser at `http://localhost:5173`.
 
 ### 2. Available Scripts
 
-Inside `_METADYN_WEB/metadyn_web/`:
+Inside `_METADYNAMICS_LABORATORY/metadynamics_laboratory/`:
 
 - `npm run dev`: Launches local development server with Hot Module Replacement (HMR).
 - `npm run build`: Compiles optimized production bundle in `dist/`.
@@ -99,20 +99,20 @@ The simulation engine ensures 100% deterministic reproducibility via the `mulber
 ## 📂 Directory Structure
 
 ```
-_METADYN_WEB/
-├── HILLS                      # Sample PLUMED HILLS input dataset
-├── metadyn_web.sh             # Bash generator script for initializing Vite + React + Tailwind
-└── metadyn_web/              # Web application project root
+_METADYNAMICS_LABORATORY/
+├── HILLS                               # Sample PLUMED HILLS input dataset
+├── metadynamics_laboratory.sh          # Bash generator script for initializing Vite + React + Tailwind
+└── metadynamics_laboratory/            # Web application project root
     ├── src/
-    │   ├── App.jsx            # Main App wrapper with 1D/2D/HILLS mode switcher
-    │   ├── MetadynamicsLab.jsx# 1D Metadynamics simulation engine & UI
-    │   ├── MetadynamicsLab2D.jsx # 2D Metadynamics simulation engine & Canvas heatmap UI
-    │   ├── HillsVisualizer.jsx # PLUMED HILLS visualizer with 60 FPS engine & Web Worker
-    │   ├── sampleHills.js     # Default fallback sample data
-    │   ├── index.css          # Tailwind CSS directives & scrollbar styles
-    │   └── main.jsx           # React DOM entrypoint
-    ├── index.html             # Single-page HTML document
-    ├── package.json           # Dependencies and scripts
-    ├── tailwind.config.js     # Tailwind CSS configuration
-    └── vite.config.js         # Vite build configuration
+    │   ├── App.jsx                     # Main App wrapper with 1D/2D/HILLS mode switcher
+    │   ├── MetadynamicsLab.jsx         # 1D Metadynamics simulation engine & UI
+    │   ├── MetadynamicsLab2D.jsx      # 2D Metadynamics simulation engine & Canvas heatmap UI
+    │   ├── HillsVisualizer.jsx         # PLUMED HILLS visualizer with 60 FPS engine & Web Worker
+    │   ├── sampleHills.js              # Default fallback sample data
+    │   ├── index.css                   # Tailwind CSS directives & scrollbar styles
+    │   └── main.jsx                    # React DOM entrypoint
+    ├── index.html                      # Single-page HTML document
+    ├── package.json                    # Dependencies and scripts
+    ├── tailwind.config.js              # Tailwind CSS configuration
+    └── vite.config.js                  # Vite build configuration
 ```

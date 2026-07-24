@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-PROJECT_NAME="${1:-metadyn_web}"
+PROJECT_NAME="${1:-metadynamics_laboratory}"
 
 echo "=== Creating Vite + React project in ./$PROJECT_NAME ==="
 
