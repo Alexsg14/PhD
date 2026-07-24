@@ -16,7 +16,8 @@ import {
   Loader2,
   Award,
   AlertTriangle,
-  RefreshCw
+  RefreshCw,
+  Eye
 } from "lucide-react";
 import {
   LineChart,
@@ -110,12 +111,45 @@ function downsampleArray(arr, maxPoints = 800) {
   return result;
 }
 
-// --- Inline Web Worker Creator ---
+// --- Color Generator for 2D FES Heatmap ---
+function getHeatmapColor(val, minVal, maxVal, palette = "Viridis") {
+  const range = maxVal - minVal;
+  const norm = range > 0.0001 ? Math.max(0, Math.min(1, (val - minVal) / range)) : 0;
+
+  if (palette === "Inferno") {
+    // 0 (min F, deep well) = bright yellow/gold, 1 (max F, high barrier) = deep violet/black
+    const inv = 1 - norm;
+    const r = Math.floor(255 * Math.pow(inv, 0.5));
+    const g = Math.floor(255 * Math.pow(inv, 1.5));
+    const b = Math.floor(255 * Math.pow(inv, 3.0));
+    return `rgb(${r},${g},${b})`;
+  } else if (palette === "Spectral") {
+    // 0 (min F, well) = Deep Blue (240 deg), 1 (max F, barrier) = Deep Red (0 deg)
+    const h = (1 - norm) * 240;
+    const l = 15 + norm * 35;
+    return `hsl(${h}, 85%, ${l}%)`;
+  } else if (palette === "CoolWarm") {
+    // 0 = Bright Cyan/Blue (well), 1 = Dark Slate/Purple (barrier)
+    const r = Math.floor(20 + norm * 200);
+    const g = Math.floor(180 * (1 - norm));
+    const b = Math.floor(240 * (1 - norm * 0.8));
+    return `rgb(${r},${g},${b})`;
+  } else {
+    // Viridis (Scientific Default): 0 (min F) = Bright Yellow/Cyan, 1 (max F) = Deep Dark Purple/Slate
+    const inv = 1 - norm;
+    const r = Math.floor(255 * Math.sin(inv * Math.PI * 0.5));
+    const g = Math.floor(255 * Math.pow(inv, 0.8));
+    const b = Math.floor(80 + 175 * Math.sin(inv * Math.PI));
+    return `rgb(${r},${g},${b})`;
+  }
+}
+
+// --- Inline Web Worker Creator supporting 1D and 2D HILLS ---
 function createHillsWorker() {
   const code = `
   self.onmessage = function(e) {
     const text = e.data.text;
-    const numBins = e.data.numBins || 300;
+    const numBinsUser = e.data.numBins || 300;
     const isWtScaling = e.data.isWtScaling !== false;
     const customBiasFactor = e.data.customBiasFactor;
     const isZeroRefMode = !!e.data.isZeroRefMode;
@@ -176,6 +210,8 @@ function createHillsWorker() {
         fieldNames = ["time", "cv1", "sigma_cv1", "height"];
       } else if (colCount >= 7) {
         fieldNames = ["time", "cv1", "cv2", "sigma_cv1", "sigma_cv2", "height", "biasf"];
+      } else if (colCount === 6) {
+        fieldNames = ["time", "cv1", "cv2", "sigma_cv1", "sigma_cv2", "height"];
       } else {
         fieldNames = Array.from({ length: colCount }, (_, idx) => "col_" + (idx + 1));
       }
@@ -189,7 +225,7 @@ function createHillsWorker() {
     if (heightIdx === -1) heightIdx = fieldNames.length - 2 >= 0 ? fieldNames.length - 2 : 3;
 
     let biasfIdx = fieldLower.findIndex((f) => f === "biasf" || f === "biasfactor");
-    if (biasfIdx === -1 && fieldNames.length >= 5) {
+    if (biasfIdx === -1 && fieldNames.length >= 5 && fieldNames.length !== 6) {
       biasfIdx = fieldNames.length - 1;
     }
 
@@ -211,6 +247,8 @@ function createHillsWorker() {
       if (fieldNames.length > 2) sigmaIndices.push(2);
     }
 
+    const is2D = cvIndices.length >= 2;
+
     const parsedHills = dataRows.map((row, rowIdx) => {
       const timeVal = row[timeIdx] ?? rowIdx * 10;
       const heightVal = row[heightIdx] ?? 1.0;
@@ -231,25 +269,9 @@ function createHillsWorker() {
 
     self.postMessage({ progress: 50 });
 
-    const cvNames = cvIndices.map((idx) => fieldNames[idx] || ("CV" + idx));
+    const cvNames = cvIndices.map((idx) => fieldNames[idx] || ("CV" + (cvIndices.indexOf(idx) + 1)));
     const startTime = parsedHills[0]?.time ?? 0;
     const endTime = parsedHills[parsedHills.length - 1]?.time ?? 0;
-
-    // Calculate grid range
-    let minCV = Infinity, maxCV = -Infinity;
-    for (let h = 0; h < parsedHills.length; h++) {
-      const v = parsedHills[h].cvs[0];
-      if (v < minCV) minCV = v;
-      if (v > maxCV) maxCV = v;
-    }
-    const avgSigma = parsedHills[0]?.sigmas[0] || 0.1;
-    let gridMin = minCV - 4 * avgSigma;
-    let gridMax = maxCV + 4 * avgSigma;
-
-    if (gridMinUser !== "" && !isNaN(parseFloat(gridMinUser))) gridMin = parseFloat(gridMinUser);
-    if (gridMaxUser !== "" && !isNaN(parseFloat(gridMaxUser))) gridMax = parseFloat(gridMaxUser);
-
-    const stepSize = (gridMax - gridMin) / (numBins - 1);
 
     let gamma = 1.0;
     if (customBiasFactor !== "" && !isNaN(parseFloat(customBiasFactor))) {
@@ -260,64 +282,175 @@ function createHillsWorker() {
     const wtFactor = isWtScaling && gamma > 1 ? gamma / (gamma - 1) : 1.0;
     const unitScale = energyUnits === "kcal/mol" ? 0.239006 : 1.0;
 
-    // Precalculate 100 incremental timeline frames for 60FPS real-time playback
     const numFrames = 100;
     const timelineGrids = new Array(numFrames);
     const chunkHillsCount = Math.ceil(parsedHills.length / numFrames);
-    const accumulatedV = new Float64Array(numBins);
 
-    for (let f = 0; f < numFrames; f++) {
-      const startH = f * chunkHillsCount;
-      const endH = Math.min(parsedHills.length, (f + 1) * chunkHillsCount);
+    if (!is2D) {
+      // --- 1D FES CALCULATION ENGINE ---
+      const numBins = numBinsUser;
+      let minCV = Infinity, maxCV = -Infinity;
+      for (let h = 0; h < parsedHills.length; h++) {
+        const v = parsedHills[h].cvs[0];
+        if (v < minCV) minCV = v;
+        if (v > maxCV) maxCV = v;
+      }
+      const avgSigma = parsedHills[0]?.sigmas[0] || 0.1;
+      let gridMin = minCV - 4 * avgSigma;
+      let gridMax = maxCV + 4 * avgSigma;
 
-      for (let h = startH; h < endH; h++) {
-        const hill = parsedHills[h];
-        const center = hill.cvs[0];
-        const sigma = hill.sigmas[0] || avgSigma;
-        const height = hill.height;
-        if (height === 0 || sigma === 0) continue;
-        const invTwoSigmaSq = 1.0 / (2 * sigma * sigma);
+      if (gridMinUser !== "" && !isNaN(parseFloat(gridMinUser))) gridMin = parseFloat(gridMinUser);
+      if (gridMaxUser !== "" && !isNaN(parseFloat(gridMaxUser))) gridMax = parseFloat(gridMaxUser);
 
+      const stepSize = (gridMax - gridMin) / (numBins - 1);
+      const accumulatedV = new Float64Array(numBins);
+
+      for (let f = 0; f < numFrames; f++) {
+        const startH = f * chunkHillsCount;
+        const endH = Math.min(parsedHills.length, (f + 1) * chunkHillsCount);
+
+        for (let h = startH; h < endH; h++) {
+          const hill = parsedHills[h];
+          const center = hill.cvs[0];
+          const sigma = hill.sigmas[0] || avgSigma;
+          const height = hill.height;
+          if (height === 0 || sigma === 0) continue;
+          const invTwoSigmaSq = 1.0 / (2 * sigma * sigma);
+
+          for (let i = 0; i < numBins; i++) {
+            const s = gridMin + i * stepSize;
+            const diff = s - center;
+            accumulatedV[i] += height * Math.exp(-(diff * diff) * invTwoSigmaSq);
+          }
+        }
+
+        let minFES = Infinity;
+        const rawF = new Float64Array(numBins);
+        for (let i = 0; i < numBins; i++) {
+          const val = -wtFactor * accumulatedV[i];
+          rawF[i] = val;
+          if (val < minFES) minFES = val;
+        }
+
+        const frameGrid = new Array(numBins);
         for (let i = 0; i < numBins; i++) {
           const s = gridMin + i * stepSize;
-          const diff = s - center;
-          accumulatedV[i] += height * Math.exp(-(diff * diff) * invTwoSigmaSq);
+          frameGrid[i] = {
+            s: parseFloat(s.toFixed(4)),
+            rawFes: rawF[i],
+            zeroFes: rawF[i] - minFES,
+            vBiasRaw: accumulatedV[i]
+          };
+        }
+
+        timelineGrids[f] = {
+          frameIndex: f + 1,
+          pct: Math.min(100, Math.round(((f + 1) / numFrames) * 100)),
+          sampleTime: parsedHills[Math.min(parsedHills.length - 1, endH - 1)]?.time || 0,
+          activeHillsCount: endH,
+          gridPoints: frameGrid
+        };
+
+        if (f % 10 === 0) {
+          self.postMessage({ progress: 50 + Math.floor((f / numFrames) * 50) });
         }
       }
+    } else {
+      // --- 2D FES CALCULATION ENGINE ---
+      const numBinsX = 90;
+      const numBinsY = 90;
 
-      // Convert accumulated V to FES grid points for frame f
-      let minFES = Infinity;
-      const rawF = new Float64Array(numBins);
-      for (let i = 0; i < numBins; i++) {
-        const val = -wtFactor * accumulatedV[i];
-        rawF[i] = val;
-        if (val < minFES) minFES = val;
+      let minCV1 = Infinity, maxCV1 = -Infinity;
+      let minCV2 = Infinity, maxCV2 = -Infinity;
+
+      for (let h = 0; h < parsedHills.length; h++) {
+        const v1 = parsedHills[h].cvs[0];
+        const v2 = parsedHills[h].cvs[1];
+        if (v1 < minCV1) minCV1 = v1;
+        if (v1 > maxCV1) maxCV1 = v1;
+        if (v2 < minCV2) minCV2 = v2;
+        if (v2 > maxCV2) maxCV2 = v2;
       }
 
-      const frameGrid = new Array(numBins);
-      for (let i = 0; i < numBins; i++) {
-        const s = gridMin + i * stepSize;
-        const rawFesVal = rawF[i];
-        const zeroFesVal = rawF[i] - minFES;
+      const avgSig1 = parsedHills[0]?.sigmas[0] || 0.1;
+      const avgSig2 = parsedHills[0]?.sigmas[1] || 0.1;
 
-        frameGrid[i] = {
-          s: parseFloat(s.toFixed(4)),
-          rawFes: rawFesVal,
-          zeroFes: zeroFesVal,
-          vBiasRaw: accumulatedV[i]
+      let gridMin1 = minCV1 - 4 * avgSig1;
+      let gridMax1 = maxCV1 + 4 * avgSig1;
+      let gridMin2 = minCV2 - 4 * avgSig2;
+      let gridMax2 = maxCV2 + 4 * avgSig2;
+
+      if (gridMinUser !== "" && !isNaN(parseFloat(gridMinUser))) gridMin1 = parseFloat(gridMinUser);
+      if (gridMaxUser !== "" && !isNaN(parseFloat(gridMaxUser))) gridMax1 = parseFloat(gridMaxUser);
+
+      const stepX = (gridMax1 - gridMin1) / (numBinsX - 1);
+      const stepY = (gridMax2 - gridMin2) / (numBinsY - 1);
+
+      const accumulatedV2D = new Float64Array(numBinsX * numBinsY);
+
+      for (let f = 0; f < numFrames; f++) {
+        const startH = f * chunkHillsCount;
+        const endH = Math.min(parsedHills.length, (f + 1) * chunkHillsCount);
+
+        for (let h = startH; h < endH; h++) {
+          const hill = parsedHills[h];
+          const cx = hill.cvs[0];
+          const cy = hill.cvs[1];
+          const sigx = hill.sigmas[0] || avgSig1;
+          const sigy = hill.sigmas[1] || avgSig2;
+          const height = hill.height;
+          if (height === 0 || sigx === 0 || sigy === 0) continue;
+
+          const inv2SigXSq = 1.0 / (2 * sigx * sigx);
+          const inv2SigYSq = 1.0 / (2 * sigy * sigy);
+
+          for (let j = 0; j < numBinsY; j++) {
+            const y = gridMin2 + j * stepY;
+            const diffy = y - cy;
+            const termY = (diffy * diffy) * inv2SigYSq;
+            const rowOffset = j * numBinsX;
+
+            for (let i = 0; i < numBinsX; i++) {
+              const x = gridMin1 + i * stepX;
+              const diffx = x - cx;
+              const termX = (diffx * diffx) * inv2SigXSq;
+
+              accumulatedV2D[rowOffset + i] += height * Math.exp(-(termX + termY));
+            }
+          }
+        }
+
+        let minFES2D = Infinity;
+        const rawF2D = new Float64Array(numBinsX * numBinsY);
+        for (let idx = 0; idx < numBinsX * numBinsY; idx++) {
+          const val = -wtFactor * accumulatedV2D[idx];
+          rawF2D[idx] = val;
+          if (val < minFES2D) minFES2D = val;
+        }
+
+        const grid2DFlat = new Float64Array(numBinsX * numBinsY * 2);
+        for (let idx = 0; idx < numBinsX * numBinsY; idx++) {
+          grid2DFlat[idx * 2] = rawF2D[idx];
+          grid2DFlat[idx * 2 + 1] = rawF2D[idx] - minFES2D;
+        }
+
+        timelineGrids[f] = {
+          frameIndex: f + 1,
+          pct: Math.min(100, Math.round(((f + 1) / numFrames) * 100)),
+          sampleTime: parsedHills[Math.min(parsedHills.length - 1, endH - 1)]?.time || 0,
+          activeHillsCount: endH,
+          grid2DFlat,
+          numBinsX,
+          numBinsY,
+          gridMin1,
+          gridMax1,
+          gridMin2,
+          gridMax2
         };
-      }
 
-      timelineGrids[f] = {
-        frameIndex: f + 1,
-        pct: Math.min(100, Math.round(((f + 1) / numFrames) * 100)),
-        sampleTime: parsedHills[Math.min(parsedHills.length - 1, endH - 1)]?.time || 0,
-        activeHillsCount: endH,
-        gridPoints: frameGrid
-      };
-
-      if (f % 10 === 0) {
-        self.postMessage({ progress: 50 + Math.floor((f / numFrames) * 50) });
+        if (f % 10 === 0) {
+          self.postMessage({ progress: 50 + Math.floor((f / numFrames) * 50) });
+        }
       }
     }
 
@@ -326,7 +459,7 @@ function createHillsWorker() {
         headerMeta,
         fieldNames,
         cvNames,
-        is2D: cvIndices.length >= 2,
+        is2D,
         hills: parsedHills,
         totalHills: parsedHills.length,
         timeRange: [startTime, endTime],
@@ -342,6 +475,302 @@ function createHillsWorker() {
   return new Worker(URL.createObjectURL(blob));
 }
 
+// --- 2D Canvas Heatmap Component ---
+function Canvas2DHeatmap({
+  frameData,
+  isZeroRefMode,
+  energyUnits,
+  cvNames,
+  hills,
+  colorPalette
+}) {
+  const canvasRef = useRef(null);
+  const [hoverInfo, setHoverInfo] = useState(null);
+  const [showTrajectory, setShowTrajectory] = useState(true);
+
+  const unitScale = energyUnits === "kcal/mol" ? 0.239006 : 1.0;
+
+  useEffect(() => {
+    if (!frameData || !frameData.grid2DFlat || !canvasRef.current) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+
+    const { numBinsX, numBinsY, gridMin1, gridMax1, gridMin2, gridMax2, grid2DFlat } = frameData;
+    const width = canvas.width;
+    const height = canvas.height;
+
+    const padLeft = 60;
+    const padRight = 75;
+    const padTop = 25;
+    const padBottom = 45;
+
+    const plotW = width - padLeft - padRight;
+    const plotH = height - padTop - padBottom;
+
+    ctx.clearRect(0, 0, width, height);
+
+    // Deep sleek dark background
+    ctx.fillStyle = "#090d16";
+    ctx.fillRect(0, 0, width, height);
+
+    // Calculate Min/Max FES for color mapping
+    let minVal = Infinity, maxVal = -Infinity;
+    for (let i = 0; i < numBinsX * numBinsY; i++) {
+      const v = isZeroRefMode ? grid2DFlat[i * 2 + 1] : grid2DFlat[i * 2];
+      const scaledV = v * unitScale;
+      if (scaledV < minVal) minVal = scaledV;
+      if (scaledV > maxVal) maxVal = scaledV;
+    }
+
+    const binPixelW = plotW / numBinsX;
+    const binPixelH = plotH / numBinsY;
+
+    // Render Heatmap Grid Bins
+    for (let j = 0; j < numBinsY; j++) {
+      for (let i = 0; i < numBinsX; i++) {
+        const idx = j * numBinsX + i;
+        const v = isZeroRefMode ? grid2DFlat[idx * 2 + 1] : grid2DFlat[idx * 2];
+        const valScaled = v * unitScale;
+
+        ctx.fillStyle = getHeatmapColor(valScaled, minVal, maxVal, colorPalette);
+        const px = padLeft + i * binPixelW;
+        const py = height - padBottom - (j + 1) * binPixelH; // Invert Y for Cartesian grid
+        ctx.fillRect(px, py, binPixelW + 0.6, binPixelH + 0.6);
+      }
+    }
+
+    // Draw Outer Plot Frame
+    ctx.strokeStyle = "#334155";
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(padLeft, padTop, plotW, plotH);
+
+    // Draw Grid Ticks & Numbers for X Axis
+    ctx.fillStyle = "#94a3b8";
+    ctx.font = "11px Inter, sans-serif";
+    ctx.textAlign = "center";
+
+    const numTicksX = 5;
+    for (let t = 0; t <= numTicksX; t++) {
+      const frac = t / numTicksX;
+      const xVal = gridMin1 + frac * (gridMax1 - gridMin1);
+      const px = padLeft + frac * plotW;
+
+      ctx.strokeStyle = "#1e293b";
+      ctx.beginPath();
+      ctx.moveTo(px, padTop);
+      ctx.lineTo(px, padTop + plotH);
+      ctx.stroke();
+
+      ctx.strokeStyle = "#475569";
+      ctx.beginPath();
+      ctx.moveTo(px, padTop + plotH);
+      ctx.lineTo(px, padTop + plotH + 4);
+      ctx.stroke();
+
+      ctx.fillText(xVal.toFixed(2), px, padTop + plotH + 18);
+    }
+
+    // X Axis Label
+    ctx.fillStyle = "#f1f5f9";
+    ctx.font = "bold 12px Inter, sans-serif";
+    ctx.fillText(`${cvNames[0] || "CV1"} Coordinate`, padLeft + plotW / 2, height - 8);
+
+    // Draw Grid Ticks & Numbers for Y Axis
+    ctx.textAlign = "right";
+    const numTicksY = 5;
+    for (let t = 0; t <= numTicksY; t++) {
+      const frac = t / numTicksY;
+      const yVal = gridMin2 + frac * (gridMax2 - gridMin2);
+      const py = height - padBottom - frac * plotH;
+
+      ctx.strokeStyle = "#1e293b";
+      ctx.beginPath();
+      ctx.moveTo(padLeft, py);
+      ctx.lineTo(padLeft + plotW, py);
+      ctx.stroke();
+
+      ctx.strokeStyle = "#475569";
+      ctx.beginPath();
+      ctx.moveTo(padLeft - 4, py);
+      ctx.lineTo(padLeft, py);
+      ctx.stroke();
+
+      ctx.fillStyle = "#94a3b8";
+      ctx.fillText(yVal.toFixed(2), padLeft - 8, py + 4);
+    }
+
+    // Y Axis Label
+    ctx.save();
+    ctx.translate(16, padTop + plotH / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillStyle = "#f1f5f9";
+    ctx.font = "bold 12px Inter, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(`${cvNames[1] || "CV2"} Coordinate`, 0, 0);
+    ctx.restore();
+
+    // Render Vertical Colorbar Legend
+    const barX = padLeft + plotW + 20;
+    const barY = padTop;
+    const barW = 16;
+    const barH = plotH;
+
+    for (let py = 0; py < barH; py++) {
+      const frac = 1 - py / barH; // Top is maxVal, Bottom is minVal
+      const valScaled = minVal + frac * (maxVal - minVal);
+      ctx.fillStyle = getHeatmapColor(valScaled, minVal, maxVal, colorPalette);
+      ctx.fillRect(barX, barY + py, barW, 1);
+    }
+
+    ctx.strokeStyle = "#475569";
+    ctx.strokeRect(barX, barY, barW, barH);
+
+    ctx.fillStyle = "#cbd5e1";
+    ctx.font = "10px JetBrains Mono, monospace";
+    ctx.textAlign = "left";
+
+    ctx.fillText(`${maxVal.toFixed(1)}`, barX + barW + 6, barY + 10);
+    ctx.fillText(`${((minVal + maxVal) / 2).toFixed(1)}`, barX + barW + 6, barY + barH / 2 + 3);
+    ctx.fillText(`${minVal.toFixed(1)}`, barX + barW + 6, barY + barH);
+
+    ctx.font = "bold 10px Inter, sans-serif";
+    ctx.fillStyle = "#38bdf8";
+    ctx.fillText(`F [${energyUnits}]`, barX, barY - 8);
+
+    // Draw Trajectory Path Overlay
+    if (showTrajectory && hills && hills.length > 0) {
+      const activeHills = hills.slice(0, frameData.activeHillsCount);
+      if (activeHills.length > 0) {
+        ctx.beginPath();
+        ctx.strokeStyle = "rgba(56, 189, 248, 0.65)";
+        ctx.lineWidth = 2;
+
+        for (let k = 0; k < activeHills.length; k++) {
+          const cv1 = activeHills[k].cvs[0];
+          const cv2 = activeHills[k].cvs[1];
+
+          const px = padLeft + ((cv1 - gridMin1) / (gridMax1 - gridMin1 || 1)) * plotW;
+          const py = height - padBottom - ((cv2 - gridMin2) / (gridMax2 - gridMin2 || 1)) * plotH;
+
+          if (k === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.stroke();
+
+        // Glowing Active Particle Marker
+        const last = activeHills[activeHills.length - 1];
+        const lastPx = padLeft + ((last.cvs[0] - gridMin1) / (gridMax1 - gridMin1 || 1)) * plotW;
+        const lastPy = height - padBottom - ((last.cvs[1] - gridMin2) / (gridMax2 - gridMin2 || 1)) * plotH;
+
+        ctx.beginPath();
+        ctx.arc(lastPx, lastPy, 6, 0, Math.PI * 2);
+        ctx.fillStyle = "#00f0ff";
+        ctx.shadowColor = "#00f0ff";
+        ctx.shadowBlur = 12;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+    }
+  }, [frameData, isZeroRefMode, energyUnits, cvNames, hills, colorPalette, showTrajectory]);
+
+  // Handle Canvas Mouse Hover
+  const handleMouseMove = (e) => {
+    if (!canvasRef.current || !frameData || !frameData.grid2DFlat) return;
+    const rect = canvasRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    const padLeft = 60;
+    const padRight = 75;
+    const padTop = 25;
+    const padBottom = 45;
+    const width = canvasRef.current.width;
+    const height = canvasRef.current.height;
+    const plotW = width - padLeft - padRight;
+    const plotH = height - padTop - padBottom;
+
+    if (x < padLeft || x > width - padRight || y < padTop || y > height - padBottom) {
+      setHoverInfo(null);
+      return;
+    }
+
+    const { numBinsX, numBinsY, gridMin1, gridMax1, gridMin2, gridMax2, grid2DFlat } = frameData;
+
+    const normX = (x - padLeft) / plotW;
+    const normY = (height - padBottom - y) / plotH;
+
+    const cv1Val = gridMin1 + normX * (gridMax1 - gridMin1);
+    const cv2Val = gridMin2 + normY * (gridMax2 - gridMin2);
+
+    const binI = Math.min(numBinsX - 1, Math.max(0, Math.floor(normX * numBinsX)));
+    const binJ = Math.min(numBinsY - 1, Math.max(0, Math.floor(normY * numBinsY)));
+
+    const idx = binJ * numBinsX + binI;
+    const rawVal = isZeroRefMode ? grid2DFlat[idx * 2 + 1] : grid2DFlat[idx * 2];
+    const fesVal = parseFloat((rawVal * unitScale).toFixed(3));
+
+    setHoverInfo({
+      x,
+      y,
+      cv1: cv1Val.toFixed(3),
+      cv2: cv2Val.toFixed(3),
+      fes: fesVal
+    });
+  };
+
+  return (
+    <div className="flex flex-col items-center space-y-4 relative w-full">
+      {/* Top Floating Control Bar */}
+      <div className="flex flex-wrap justify-between items-center w-full px-1 text-xs gap-2">
+        <label className="flex items-center gap-2 cursor-pointer bg-slate-950/80 px-3 py-1.5 rounded-xl border border-slate-800 hover:border-slate-700 transition-all text-slate-300">
+          <input
+            type="checkbox"
+            checked={showTrajectory}
+            onChange={(e) => setShowTrajectory(e.target.checked)}
+            className="accent-cyan-500 rounded"
+          />
+          <span className="font-semibold">Show Trajectory Overlay</span>
+        </label>
+
+        {hoverInfo ? (
+          <div className="flex items-center gap-3 font-mono text-xs bg-slate-950/90 px-3 py-1.5 rounded-xl border border-indigo-500/40 shadow-lg">
+            <span className="text-slate-300">{cvNames[0] || "CV1"}: <strong className="text-cyan-300">{hoverInfo.cv1}</strong></span>
+            <span className="text-slate-300">{cvNames[1] || "CV2"}: <strong className="text-purple-300">{hoverInfo.cv2}</strong></span>
+            <span className="text-rose-400 font-bold">F(s₁,s₂): {hoverInfo.fes} {energyUnits}</span>
+          </div>
+        ) : (
+          <span className="text-[11px] text-slate-400 font-mono italic">Hover over heatmap for energy inspection</span>
+        )}
+      </div>
+
+      {/* Canvas Heatmap Display */}
+      <div className="relative border border-slate-800 rounded-2xl overflow-hidden shadow-2xl bg-slate-950 p-2">
+        <canvas
+          ref={canvasRef}
+          width={640}
+          height={440}
+          onMouseMove={handleMouseMove}
+          onMouseLeave={() => setHoverInfo(null)}
+          className="cursor-crosshair block rounded-xl"
+        />
+
+        {/* Floating Crosshair Indicator */}
+        {hoverInfo && (
+          <div
+            className="absolute pointer-events-none border border-cyan-400/60 rounded-full w-5 h-5 -translate-x-1/2 -translate-y-1/2 shadow-lg shadow-cyan-500/50"
+            style={{ left: hoverInfo.x + 8, top: hoverInfo.y + 8 }}
+          >
+            <div className="w-1 h-1 bg-cyan-400 rounded-full absolute inset-0 m-auto"></div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function HillsVisualizerInner() {
   const [hillsData, setHillsData] = useState(null);
   const [fileName, setFileName] = useState("");
@@ -351,7 +780,8 @@ function HillsVisualizerInner() {
   const [loadingMsg, setLoadingMsg] = useState("");
   const [isDraggingFile, setIsDraggingFile] = useState(false);
 
-  const [activeTab, setActiveTab] = useState("fes"); // "fes" | "height" | "cv" | "convergence"
+  const [activeTab, setActiveTab] = useState("fes");
+  const [colorPalette, setColorPalette] = useState("Viridis");
 
   // Applied parameters used for computation
   const [numBins, setNumBins] = useState(300);
@@ -365,13 +795,13 @@ function HillsVisualizerInner() {
   const [inputGridMin, setInputGridMin] = useState("");
   const [inputGridMax, setInputGridMax] = useState("");
 
-  const [timeStepProgress, setTimeStepProgress] = useState(100); // 1 to 100% of trajectory
+  const [timeStepProgress, setTimeStepProgress] = useState(100);
   const [isPlayingTime, setIsPlayingTime] = useState(false);
-  const [playbackSpeed, setPlaybackSpeed] = useState(60); // ms per frame
+  const [playbackSpeed, setPlaybackSpeed] = useState(60);
 
-  const [energyUnits, setEnergyUnits] = useState("kJ/mol"); // "kJ/mol" | "kcal/mol"
-  const [isZeroRefMode, setIsZeroRefMode] = useState(false); // false = Direct Absolute F(s)=-V(s), true = Relative F(s) min=0
-  const [isWtScaling, setIsWtScaling] = useState(true); // apply gamma/(gamma-1) factor
+  const [energyUnits, setEnergyUnits] = useState("kJ/mol");
+  const [isZeroRefMode, setIsZeroRefMode] = useState(false);
+  const [isWtScaling, setIsWtScaling] = useState(true);
 
   const fileInputRef = useRef(null);
   const rawTextRef = useRef("");
@@ -417,7 +847,7 @@ function HillsVisualizerInner() {
       timer = setInterval(() => {
         setTimeStepProgress((prev) => {
           if (prev >= 100) {
-            return 1; // loop back
+            return 1;
           }
           return prev + 1;
         });
@@ -517,60 +947,32 @@ function HillsVisualizerInner() {
     setGridMaxUser("");
   };
 
-  // Dynamically formatted grid points for active frame
+  // Dynamically formatted grid frame data
   const currentFrameData = useMemo(() => {
     if (!hillsData || !hillsData.timelineGrids || hillsData.timelineGrids.length === 0) return null;
     const idx = Math.max(0, Math.min(99, timeStepProgress - 1));
     const rawFrame = hillsData.timelineGrids[idx];
-    if (!rawFrame || !rawFrame.gridPoints) return null;
+    if (!rawFrame) return null;
 
-    const unitScale = energyUnits === "kcal/mol" ? 0.239006 : 1.0;
-
-    const formattedPoints = rawFrame.gridPoints.map((p) => {
-      const rawVal = isZeroRefMode ? p.zeroFes : p.rawFes;
-      return {
-        s: p.s,
-        fes: parseFloat((rawVal * unitScale).toFixed(3)),
-        vBias: parseFloat((p.vBiasRaw * unitScale).toFixed(3))
-      };
-    });
-
-    return {
-      ...rawFrame,
-      gridPoints: formattedPoints
-    };
-  }, [hillsData, timeStepProgress, isZeroRefMode, energyUnits]);
-
-  // Multi-stage convergence rows
-  const convergenceData = useMemo(() => {
-    if (!hillsData || !hillsData.timelineGrids || hillsData.timelineGrids.length < 100) {
-      return { chartRows: [] };
-    }
-    const unitScale = energyUnits === "kcal/mol" ? 0.239006 : 1.0;
-
-    const g25 = hillsData.timelineGrids[24].gridPoints;
-    const g50 = hillsData.timelineGrids[49].gridPoints;
-    const g75 = hillsData.timelineGrids[74].gridPoints;
-    const g100 = hillsData.timelineGrids[99].gridPoints;
-
-    const chartRows = [];
-    for (let i = 0; i < g100.length; i++) {
-      const getVal = (pt) => {
-        if (!pt) return 0;
-        const raw = isZeroRefMode ? pt.zeroFes : pt.rawFes;
-        return parseFloat((raw * unitScale).toFixed(3));
-      };
-
-      chartRows.push({
-        s: g100[i].s,
-        "FES_25%": getVal(g25[i]),
-        "FES_50%": getVal(g50[i]),
-        "FES_75%": getVal(g75[i]),
-        "FES_100%": getVal(g100[i])
+    if (!hillsData.is2D && rawFrame.gridPoints) {
+      const unitScale = energyUnits === "kcal/mol" ? 0.239006 : 1.0;
+      const formattedPoints = rawFrame.gridPoints.map((p) => {
+        const rawVal = isZeroRefMode ? p.zeroFes : p.rawFes;
+        return {
+          s: p.s,
+          fes: parseFloat((rawVal * unitScale).toFixed(3)),
+          vBias: parseFloat((p.vBiasRaw * unitScale).toFixed(3))
+        };
       });
+
+      return {
+        ...rawFrame,
+        gridPoints: formattedPoints
+      };
     }
-    return { chartRows };
-  }, [hillsData, isZeroRefMode, energyUnits]);
+
+    return rawFrame;
+  }, [hillsData, timeStepProgress, isZeroRefMode, energyUnits]);
 
   // Downsampled datasets for Recharts line charts
   const chartHeightData = useMemo(() => {
@@ -580,7 +982,11 @@ function HillsVisualizerInner() {
 
   const chartCvData = useMemo(() => {
     if (!hillsData || !hillsData.hills) return [];
-    const raw = hillsData.hills.map((h) => ({ time: h.time, cv: h.cvs[0] }));
+    const raw = hillsData.hills.map((h) => ({
+      time: h.time,
+      cv1: h.cvs[0],
+      cv2: hillsData.is2D ? h.cvs[1] : undefined
+    }));
     return downsampleArray(raw, 800);
   }, [hillsData]);
 
@@ -596,8 +1002,19 @@ function HillsVisualizerInner() {
         ? (((initialHeight - finalHeight) / initialHeight) * 100).toFixed(1)
         : "0.0";
 
-    const cvVals = hills.map((h) => h.cvs[0]);
-    const { min: minCVNum, max: maxCVNum } = getMinMax(cvVals, 0);
+    const cv1Vals = hills.map((h) => h.cvs[0]);
+    const { min: minCV1, max: maxCV1 } = getMinMax(cv1Vals, 0);
+
+    let cv2Info = null;
+    if (hillsData.is2D) {
+      const cv2Vals = hills.map((h) => h.cvs[1]);
+      const { min: minCV2, max: maxCV2 } = getMinMax(cv2Vals, 0);
+      cv2Info = {
+        name: hillsData.cvNames[1] || "CV2",
+        min: minCV2.toFixed(3),
+        max: maxCV2.toFixed(3)
+      };
+    }
 
     return {
       totalHills: hillsData.totalHills,
@@ -606,37 +1023,82 @@ function HillsVisualizerInner() {
       initialHeight: initialHeight.toFixed(3),
       finalHeight: finalHeight.toFixed(3),
       heightReductionRatio,
-      minCV: minCVNum.toFixed(3),
-      maxCV: maxCVNum.toFixed(3),
-      cvName: hillsData.cvNames[0] || "CV1",
+      minCV1: minCV1.toFixed(3),
+      maxCV1: maxCV1.toFixed(3),
+      cv1Name: hillsData.cvNames[0] || "CV1",
+      cv2Info,
+      is2D: hillsData.is2D,
       isWT: hillsData.effectiveBiasFactor > 1
     };
   }, [hillsData]);
 
-  // Export calculated FES as PLUMED compatible fes.dat
+  // Export calculated FES as PLUMED compatible fes.dat (1D or 2D)
   const handleExportFES = () => {
-    if (!currentFrameData) return;
-    const header = [
-      `#! FIELDS ${hillsData.cvNames[0] || "CV1"} file.free ${hillsData.cvNames[0] || "CV1"}_der`,
-      `#! SET min_${hillsData.cvNames[0] || "CV1"} ${currentFrameData.gridPoints[0].s}`,
-      `#! SET max_${hillsData.cvNames[0] || "CV1"} ${currentFrameData.gridPoints[currentFrameData.gridPoints.length - 1].s}`,
-      `#! SET nbins_${hillsData.cvNames[0] || "CV1"} ${numBins}`,
-      `#! SET periodic_${hillsData.cvNames[0] || "CV1"} false`,
-      `#! Reconstructed with MetadynWeb HILLS Visualizer`,
-      `#! BiasFactor: ${hillsData.effectiveBiasFactor}`,
-      `#! Energy Unit: ${energyUnits}`
-    ].join("\n");
+    if (!currentFrameData || !hillsData) return;
 
-    const lines = currentFrameData.gridPoints.map((p) => `  ${p.s}   ${p.fes}   0.0000`);
-    const content = header + "\n" + lines.join("\n");
+    if (!hillsData.is2D && currentFrameData.gridPoints) {
+      const header = [
+        `#! FIELDS ${hillsData.cvNames[0] || "CV1"} file.free ${hillsData.cvNames[0] || "CV1"}_der`,
+        `#! SET min_${hillsData.cvNames[0] || "CV1"} ${currentFrameData.gridPoints[0].s}`,
+        `#! SET max_${hillsData.cvNames[0] || "CV1"} ${currentFrameData.gridPoints[currentFrameData.gridPoints.length - 1].s}`,
+        `#! SET nbins_${hillsData.cvNames[0] || "CV1"} ${numBins}`,
+        `#! SET periodic_${hillsData.cvNames[0] || "CV1"} false`,
+        `#! Reconstructed with Metadynamics Laboratory HILLS Inspector`,
+        `#! BiasFactor: ${hillsData.effectiveBiasFactor}`,
+        `#! Energy Unit: ${energyUnits}`
+      ].join("\n");
 
-    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `fes_${hillsData.cvNames[0] || "CV1"}_reconstructed.dat`;
-    link.click();
-    URL.revokeObjectURL(url);
+      const lines = currentFrameData.gridPoints.map((p) => `  ${p.s}   ${p.fes}   0.0000`);
+      const content = header + "\n" + lines.join("\n");
+
+      const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `fes_${hillsData.cvNames[0] || "CV1"}_1D.dat`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } else if (hillsData.is2D && currentFrameData.grid2DFlat) {
+      const { numBinsX, numBinsY, gridMin1, gridMax1, gridMin2, gridMax2, grid2DFlat } = currentFrameData;
+      const unitScale = energyUnits === "kcal/mol" ? 0.239006 : 1.0;
+
+      const header = [
+        `#! FIELDS ${hillsData.cvNames[0] || "CV1"} ${hillsData.cvNames[1] || "CV2"} file.free ${hillsData.cvNames[0] || "CV1"}_der ${hillsData.cvNames[1] || "CV2"}_der`,
+        `#! SET min_${hillsData.cvNames[0] || "CV1"} ${gridMin1}`,
+        `#! SET max_${hillsData.cvNames[0] || "CV1"} ${gridMax1}`,
+        `#! SET nbins_${hillsData.cvNames[0] || "CV1"} ${numBinsX}`,
+        `#! SET min_${hillsData.cvNames[1] || "CV2"} ${gridMin2}`,
+        `#! SET max_${hillsData.cvNames[1] || "CV2"} ${gridMax2}`,
+        `#! SET nbins_${hillsData.cvNames[1] || "CV2"} ${numBinsY}`,
+        `#! Reconstructed 2D FES with Metadynamics Laboratory`,
+        `#! Energy Unit: ${energyUnits}`
+      ].join("\n");
+
+      const stepX = (gridMax1 - gridMin1) / (numBinsX - 1);
+      const stepY = (gridMax2 - gridMin2) / (numBinsY - 1);
+
+      const lines = [];
+      for (let j = 0; j < numBinsY; j++) {
+        const y = gridMin2 + j * stepY;
+        for (let i = 0; i < numBinsX; i++) {
+          const x = gridMin1 + i * stepX;
+          const idx = j * numBinsX + i;
+          const rawVal = isZeroRefMode ? grid2DFlat[idx * 2 + 1] : grid2DFlat[idx * 2];
+          const valScaled = (rawVal * unitScale).toFixed(4);
+          lines.push(`  ${x.toFixed(4)}   ${y.toFixed(4)}   ${valScaled}   0.0000   0.0000`);
+        }
+        lines.push("");
+      }
+
+      const content = header + "\n" + lines.join("\n");
+      const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `fes_2D_${hillsData.cvNames[0] || "CV1"}_${hillsData.cvNames[1] || "CV2"}.dat`;
+      link.click();
+      URL.revokeObjectURL(url);
+    }
   };
 
   return (
@@ -656,14 +1118,14 @@ function HillsVisualizerInner() {
             <div>
               <h2 className="text-xl font-bold text-white">Drop your HILLS file here</h2>
               <p className="text-xs text-slate-400 mt-1">
-                Instant reading and non-blocking background Web Worker processing
+                Supports 1D and 2D PLUMED HILLS output files
               </p>
             </div>
           </div>
         </div>
       )}
 
-      {/* Non-blocking background Web Worker Loading Spinner & Progress Bar */}
+      {/* Background Web Worker Loading Spinner & Progress Bar */}
       {isLoading && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex flex-col items-center justify-center space-y-4">
           <div className="p-6 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl flex flex-col items-center space-y-4 max-w-md text-center">
@@ -697,11 +1159,11 @@ function HillsVisualizerInner() {
                 PLUMED HILLS Visualizer & Inspector
               </h1>
               <span className="px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-indigo-950 text-indigo-400 border border-indigo-800/60 rounded-full">
-                60 FPS Real-Time Engine
+                {hillsData?.is2D ? "2D Mode Enabled" : "1D / 2D Engine"}
               </span>
             </div>
             <p className="text-slate-400 text-xs mt-1">
-              Exact F(s) = -V(s) reconstruction summing 100% of gaussian hills without resolution loss
+              Reconstruction of 1D and 2D Free Energy Surfaces from PLUMED HILLS data
             </p>
           </div>
         </div>
@@ -725,7 +1187,7 @@ function HillsVisualizerInner() {
         </div>
       </header>
 
-      {/* Error notification banner if parsing fails */}
+      {/* Error notification banner */}
       {errorMsg && (
         <div className="bg-red-950/80 border border-red-800 text-red-200 p-4 rounded-xl text-xs flex justify-between items-center">
           <span>⚠️ Error: {errorMsg}</span>
@@ -745,9 +1207,9 @@ function HillsVisualizerInner() {
             <Upload size={48} className="animate-pulse" />
           </div>
           <div className="max-w-md space-y-2">
-            <h2 className="text-xl font-extrabold text-white">HILLS File Visualizer (PLUMED)</h2>
+            <h2 className="text-xl font-extrabold text-white">HILLS File Visualizer (PLUMED 1D & 2D)</h2>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Drag your <code className="text-cyan-300 bg-slate-950 px-1.5 py-0.5 rounded font-mono">HILLS</code> file directly onto this window or click the button below to select it from your computer.
+              Drag your <code className="text-cyan-300 bg-slate-950 px-1.5 py-0.5 rounded font-mono">HILLS</code> file (1D or 2D) directly onto this window or click the button below to select it from your computer.
             </p>
           </div>
 
@@ -772,7 +1234,7 @@ function HillsVisualizerInner() {
             <span className="text-xl font-extrabold text-white mt-1 font-mono">
               {stats.totalHills}
             </span>
-            <span className="text-[10px] text-slate-500 mt-0.5">Total deposits</span>
+            <span className="text-[10px] text-slate-500 mt-0.5">{stats.is2D ? "2D Gaussian Hills" : "1D Gaussian Hills"}</span>
           </div>
 
           <div className="bg-slate-900/80 border border-slate-800/80 rounded-xl p-3.5 shadow-md flex flex-col justify-between">
@@ -787,13 +1249,13 @@ function HillsVisualizerInner() {
 
           <div className="bg-slate-900/80 border border-slate-800/80 rounded-xl p-3.5 shadow-md flex flex-col justify-between">
             <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider flex items-center gap-1.5">
-              <Activity size={13} className="text-emerald-400" /> Collective Variable
+              <Activity size={13} className="text-emerald-400" /> {stats.is2D ? "Collective Variables" : "Collective Variable"}
             </span>
-            <span className="text-lg font-bold text-emerald-300 mt-1 font-mono truncate">
-              {stats.cvName}
+            <span className="text-sm font-bold text-emerald-300 mt-1 font-mono truncate">
+              {stats.is2D ? `${stats.cv1Name}, ${stats.cv2Info.name}` : stats.cv1Name}
             </span>
-            <span className="text-[10px] text-slate-500 mt-0.5 font-mono">
-              [{stats.minCV}, {stats.maxCV}]
+            <span className="text-[10px] text-slate-500 mt-0.5 font-mono truncate">
+              {stats.is2D ? `[${stats.minCV1}, ${stats.maxCV1}] × [${stats.cv2Info.min}, ${stats.cv2Info.max}]` : `[${stats.minCV1}, ${stats.maxCV1}]`}
             </span>
           </div>
 
@@ -870,17 +1332,6 @@ function HillsVisualizerInner() {
             >
               <Activity size={15} /> CV Trajectory s(t)
             </button>
-
-            <button
-              onClick={() => setActiveTab("convergence")}
-              className={`px-4 py-2 rounded-lg font-bold transition-all flex items-center gap-2 ${
-                activeTab === "convergence"
-                  ? "bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-md shadow-indigo-500/20"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              <Clock size={15} /> Time Convergence
-            </button>
           </div>
 
           {/* File Name Tag */}
@@ -902,14 +1353,29 @@ function HillsVisualizerInner() {
               <div>
                 <h2 className="text-base font-bold text-white flex items-center gap-2">
                   <TrendingUp size={18} className="text-indigo-400" />
-                  Reconstructed Free Energy Profile F(s)
+                  {hillsData.is2D ? "Reconstructed 2D Free Energy Heatmap F(s₁, s₂)" : "Reconstructed Free Energy Profile F(s)"}
                 </h2>
                 <p className="text-slate-400 text-xs">
-                  Free Energy Surface reconstruction from sum of gaussian HILLS
+                  {hillsData.is2D
+                    ? "2D Free Energy Surface reconstructed from 2D Gaussian HILLS summation"
+                    : "Free Energy Surface reconstruction from sum of gaussian HILLS"}
                 </p>
               </div>
 
               <div className="flex items-center gap-2">
+                {hillsData.is2D && (
+                  <select
+                    value={colorPalette}
+                    onChange={(e) => setColorPalette(e.target.value)}
+                    className="bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-xl px-2.5 py-1.5 outline-none font-medium"
+                  >
+                    <option value="Viridis">Viridis (Scientific Default)</option>
+                    <option value="Inferno">Inferno (Thermal Glow)</option>
+                    <option value="Spectral">Spectral (Rainbow)</option>
+                    <option value="CoolWarm">Cool-Warm (Blue-Red)</option>
+                  </select>
+                )}
+
                 <button
                   onClick={handleExportFES}
                   className="px-3 py-1.5 bg-indigo-950 hover:bg-indigo-900 text-indigo-300 border border-indigo-700/60 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm"
@@ -920,79 +1386,90 @@ function HillsVisualizerInner() {
               </div>
             </div>
 
-            {/* Recharts 1D FES Line Plot (Instant 60 FPS Real-Time Animation) */}
-            <div className="h-80 w-full pt-2">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart
-                  data={currentFrameData.gridPoints}
-                  margin={{ top: 15, right: 25, left: 10, bottom: 20 }}
-                >
-                  <defs>
-                    <linearGradient id="fesGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#ef4444" stopOpacity={0.65} />
-                      <stop offset="95%" stopColor="#dc2626" stopOpacity={0.1} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                  <XAxis
-                    dataKey="s"
-                    stroke="#64748b"
-                    tick={{ fill: "#94a3b8", fontSize: 11 }}
-                    label={{
-                      value: `Collective Variable (${hillsData.cvNames[0] || "CV1"})`,
-                      position: "insideBottom",
-                      offset: -12,
-                      fill: "#cbd5e1",
-                      fontSize: 12
-                    }}
-                  />
-                  <YAxis
-                    stroke="#64748b"
-                    tick={{ fill: "#94a3b8", fontSize: 11 }}
-                    domain={isZeroRefMode ? [0, 'auto'] : ['auto', 'auto']}
-                    label={{
-                      value: `Free Energy F(s) [${energyUnits}]`,
-                      angle: -90,
-                      position: "insideLeft",
-                      offset: 10,
-                      fill: "#cbd5e1",
-                      fontSize: 12
-                    }}
-                  />
-                  <Tooltip
-                    content={({ active, payload }) => {
-                      if (active && payload && payload.length) {
-                        const data = payload[0].payload;
-                        return (
-                          <div className="bg-slate-950/95 backdrop-blur-md border border-slate-800 p-3 rounded-xl shadow-2xl text-xs space-y-1">
-                            <div className="font-mono text-cyan-400 font-bold border-b border-slate-800 pb-1">
-                              {hillsData.cvNames[0] || "CV"}: {data.s}
+            {/* 1D AreaChart vs 2D Heatmap Canvas */}
+            {!hillsData.is2D ? (
+              <div className="h-80 w-full pt-2">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart
+                    data={currentFrameData.gridPoints}
+                    margin={{ top: 15, right: 25, left: 10, bottom: 20 }}
+                  >
+                    <defs>
+                      <linearGradient id="fesGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.65} />
+                        <stop offset="95%" stopColor="#dc2626" stopOpacity={0.1} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                    <XAxis
+                      dataKey="s"
+                      stroke="#64748b"
+                      tick={{ fill: "#94a3b8", fontSize: 11 }}
+                      label={{
+                        value: `Collective Variable (${hillsData.cvNames[0] || "CV1"})`,
+                        position: "insideBottom",
+                        offset: -12,
+                        fill: "#cbd5e1",
+                        fontSize: 12
+                      }}
+                    />
+                    <YAxis
+                      stroke="#64748b"
+                      tick={{ fill: "#94a3b8", fontSize: 11 }}
+                      domain={isZeroRefMode ? [0, 'auto'] : ['auto', 'auto']}
+                      label={{
+                        value: `Free Energy F(s) [${energyUnits}]`,
+                        angle: -90,
+                        position: "insideLeft",
+                        offset: 10,
+                        fill: "#cbd5e1",
+                        fontSize: 12
+                      }}
+                    />
+                    <Tooltip
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          const data = payload[0].payload;
+                          return (
+                            <div className="bg-slate-950/95 backdrop-blur-md border border-slate-800 p-3 rounded-xl shadow-2xl text-xs space-y-1">
+                              <div className="font-mono text-cyan-400 font-bold border-b border-slate-800 pb-1">
+                                {hillsData.cvNames[0] || "CV"}: {data.s}
+                              </div>
+                              <div className="text-rose-300 font-semibold">
+                                F(s): {data.fes} {energyUnits}
+                              </div>
+                              <div className="text-slate-400 font-mono text-[10px]">
+                                V_bias: {data.vBias}
+                              </div>
                             </div>
-                            <div className="text-rose-300 font-semibold">
-                              F(s): {data.fes} {energyUnits}
-                            </div>
-                            <div className="text-slate-400 font-mono text-[10px]">
-                              V_bias: {data.vBias}
-                            </div>
-                          </div>
-                        );
-                      }
-                      return null;
-                    }}
-                  />
+                          );
+                        }
+                        return null;
+                      }}
+                    />
 
-                  <Area
-                    type="monotone"
-                    dataKey="fes"
-                    name="Free Energy F(s)"
-                    stroke="#f87171"
-                    strokeWidth={2.5}
-                    fill="url(#fesGradient)"
-                    isAnimationActive={false}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
+                    <Area
+                      type="monotone"
+                      dataKey="fes"
+                      name="Free Energy F(s)"
+                      stroke="#f87171"
+                      strokeWidth={2.5}
+                      fill="url(#fesGradient)"
+                      isAnimationActive={false}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <Canvas2DHeatmap
+                frameData={currentFrameData}
+                isZeroRefMode={isZeroRefMode}
+                energyUnits={energyUnits}
+                cvNames={hillsData.cvNames}
+                hills={hillsData.hills}
+                colorPalette={colorPalette}
+              />
+            )}
 
             {/* Time Trajectory Progress Slider with Smooth REAL-TIME PLAY / PAUSE */}
             <div className="bg-slate-950/80 border border-slate-800/80 p-4 rounded-xl space-y-3">
@@ -1103,19 +1580,21 @@ function HillsVisualizerInner() {
                 FES Grid Parameters
               </h3>
 
-              <div>
-                <label className="block text-xs text-slate-400 mb-1 font-medium">
-                  Grid Resolution (Bins):
-                </label>
-                <input
-                  type="number"
-                  min="50"
-                  max="1000"
-                  value={inputNumBins}
-                  onChange={(e) => setInputNumBins(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-cyan-300 font-mono focus:ring-2 focus:ring-indigo-500 outline-none"
-                />
-              </div>
+              {!hillsData?.is2D && (
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1 font-medium">
+                    Grid Resolution (Bins):
+                  </label>
+                  <input
+                    type="number"
+                    min="50"
+                    max="1000"
+                    value={inputNumBins}
+                    onChange={(e) => setInputNumBins(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-cyan-300 font-mono focus:ring-2 focus:ring-indigo-500 outline-none"
+                  />
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs text-slate-400 mb-1 font-medium">
@@ -1146,7 +1625,7 @@ function HillsVisualizerInner() {
 
               <div className="grid grid-cols-2 gap-2 pt-1">
                 <div>
-                  <label className="block text-[10px] text-slate-400 mb-1">Min CV Bound:</label>
+                  <label className="block text-[10px] text-slate-400 mb-1">Min CV1 Bound:</label>
                   <input
                     type="text"
                     placeholder="Auto"
@@ -1156,7 +1635,7 @@ function HillsVisualizerInner() {
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] text-slate-400 mb-1">Max CV Bound:</label>
+                  <label className="block text-[10px] text-slate-400 mb-1">Max CV1 Bound:</label>
                   <input
                     type="text"
                     placeholder="Auto"
@@ -1254,10 +1733,10 @@ function HillsVisualizerInner() {
           <div className="border-b border-slate-800 pb-3">
             <h2 className="text-base font-bold text-white flex items-center gap-2">
               <Activity size={18} className="text-emerald-400" />
-              Collective Variable Trajectory s(t) Over Time
+              {hillsData.is2D ? "Collective Variables Trajectory (CV1, CV2) Over Time" : "Collective Variable Trajectory s(t) Over Time"}
             </h2>
             <p className="text-slate-400 text-xs">
-              Shows system diffusion along the reaction coordinate and barrier crossing events.
+              Shows system diffusion along the reaction coordinate(s) and barrier crossing events.
             </p>
           </div>
 
@@ -1277,73 +1756,29 @@ function HillsVisualizerInner() {
                 <YAxis
                   stroke="#64748b"
                   tick={{ fill: "#94a3b8", fontSize: 11 }}
-                  label={{ value: `CV (${hillsData.cvNames[0] || "CV1"})`, angle: -90, position: "insideLeft", offset: 10, fill: "#cbd5e1", fontSize: 12 }}
-                />
-                <Tooltip
-                  content={({ active, payload }) => {
-                    if (active && payload && payload.length) {
-                      const d = payload[0].payload;
-                      return (
-                        <div className="bg-slate-950 border border-slate-800 p-2.5 rounded-xl shadow-xl text-xs space-y-1">
-                          <div className="text-emerald-400 font-mono font-bold">t = {d.time} ps</div>
-                          <div className="text-white font-semibold">CV: {d.cv}</div>
-                        </div>
-                      );
-                    }
-                    return null;
-                  }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="cv"
-                  name="Collective Variable"
-                  stroke="#34d399"
-                  strokeWidth={1.5}
-                  dot={false}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 4: Multi-stage Convergence Overlay */}
-      {hillsData && activeTab === "convergence" && convergenceData.chartRows && (
-        <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4">
-          <div className="border-b border-slate-800 pb-3 flex justify-between items-center">
-            <div>
-              <h2 className="text-base font-bold text-white flex items-center gap-2">
-                <Clock size={18} className="text-cyan-400" />
-                FES Convergence Overlay (25%, 50%, 75%, 100%)
-              </h2>
-              <p className="text-slate-400 text-xs">
-                If late-stage profiles overlap almost identically, the free energy profile has converged.
-              </p>
-            </div>
-          </div>
-
-          <div className="h-96 w-full pt-2">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={convergenceData.chartRows} margin={{ top: 10, right: 20, left: 10, bottom: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                <XAxis
-                  dataKey="s"
-                  stroke="#64748b"
-                  tick={{ fill: "#94a3b8", fontSize: 11 }}
-                  label={{ value: `Collective Variable (${hillsData.cvNames[0] || "CV1"})`, position: "insideBottom", offset: -12, fill: "#cbd5e1", fontSize: 12 }}
-                />
-                <YAxis
-                  stroke="#64748b"
-                  tick={{ fill: "#94a3b8", fontSize: 11 }}
-                  label={{ value: `F(s) [${energyUnits}]`, angle: -90, position: "insideLeft", offset: 10, fill: "#cbd5e1", fontSize: 12 }}
                 />
                 <Tooltip />
                 <Legend verticalAlign="top" height={36} />
 
-                <Line type="monotone" dataKey="FES_25%" name="25% Time" stroke="#94a3b8" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />
-                <Line type="monotone" dataKey="FES_50%" name="50% Time" stroke="#38bdf8" strokeWidth={1.5} strokeDasharray="2 2" dot={false} />
-                <Line type="monotone" dataKey="FES_75%" name="75% Time" stroke="#a855f7" strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="FES_100%" name="100% Full" stroke="#f87171" strokeWidth={3} dot={false} />
+                <Line
+                  type="monotone"
+                  dataKey="cv1"
+                  name={hillsData.cvNames[0] || "CV1"}
+                  stroke="#34d399"
+                  strokeWidth={1.5}
+                  dot={false}
+                />
+
+                {hillsData.is2D && (
+                  <Line
+                    type="monotone"
+                    dataKey="cv2"
+                    name={hillsData.cvNames[1] || "CV2"}
+                    stroke="#a855f7"
+                    strokeWidth={1.5}
+                    dot={false}
+                  />
+                )}
               </LineChart>
             </ResponsiveContainer>
           </div>
