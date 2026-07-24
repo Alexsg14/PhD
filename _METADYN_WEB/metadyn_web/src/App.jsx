@@ -2,10 +2,11 @@ import React, { useState } from "react";
 import "./index.css";
 import MetadynamicsLab from "./MetadynamicsLab";
 import MetadynamicsLab2D from "./MetadynamicsLab2D";
-import { Activity, Layers } from "lucide-react";
+import HillsVisualizer from "./HillsVisualizer";
+import { Activity, Layers, BarChart2 } from "lucide-react";
 
 function App() {
-  const [simDimension, setSimDimension] = useState("1D"); // "1D" | "2D"
+  const [simDimension, setSimDimension] = useState("1D"); // "1D" | "2D" | "HILLS"
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 py-6 px-4 sm:px-6 lg:px-8 selection:bg-cyan-500 selection:text-white relative overflow-x-hidden">
@@ -14,16 +15,16 @@ function App() {
       <div className="fixed top-1/3 -right-40 w-96 h-96 bg-indigo-600/15 rounded-full blur-3xl pointer-events-none"></div>
       <div className="fixed -bottom-40 left-1/3 w-96 h-96 bg-purple-600/15 rounded-full blur-3xl pointer-events-none"></div>
       
-      {/* Top Global Dimension Switcher Bar */}
-      <div className="max-w-7xl mx-auto mb-5 flex justify-between items-center bg-slate-900/90 backdrop-blur-md p-2 rounded-2xl border border-slate-800 shadow-xl">
+      {/* Top Global Mode Switcher Bar */}
+      <div className="max-w-7xl mx-auto mb-5 flex flex-wrap justify-between items-center bg-slate-900/90 backdrop-blur-md p-2 rounded-2xl border border-slate-800 shadow-xl gap-3">
         <div className="flex items-center gap-2 pl-3">
           <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping"></span>
           <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
-            Metadynamics Dimension Mode:
+            Metadynamics Mode:
           </span>
         </div>
         
-        <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
+        <div className="flex flex-wrap bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
           <button
             onClick={() => setSimDimension("1D")}
             className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${
@@ -45,10 +46,27 @@ function App() {
           >
             <Layers size={15} /> 2D Simulator (CV_x, CV_y)
           </button>
+
+          <button
+            onClick={() => setSimDimension("HILLS")}
+            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${
+              simDimension === "HILLS"
+                ? "bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/20"
+                : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <BarChart2 size={15} /> HILLS Visualizer (PLUMED)
+          </button>
         </div>
       </div>
 
-      {simDimension === "1D" ? <MetadynamicsLab /> : <MetadynamicsLab2D />}
+      {simDimension === "1D" ? (
+        <MetadynamicsLab />
+      ) : simDimension === "2D" ? (
+        <MetadynamicsLab2D />
+      ) : (
+        <HillsVisualizer />
+      )}
     </div>
   );
 }
