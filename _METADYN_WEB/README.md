@@ -5,27 +5,35 @@
 [![Tailwind CSS 3](https://img.shields.io/badge/TailwindCSS-3-38bdf8.svg)](https://tailwindcss.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Interactive web-based simulation environment for exploring **1D Metadynamics** and **Well-Tempered Metadynamics (WT-MetaD)** on arbitrary Potential Energy Surfaces (PES).
+Interactive web-based simulation environment for exploring **1D and 2D Metadynamics** and **Well-Tempered Metadynamics (WT-MetaD)** on arbitrary Potential Energy Surfaces (PES).
 
 ---
 
 ## 🌟 Key Features
 
-- **1D Overdamped Langevin (Brownian) Dynamics**:
-  - Simulates particle diffusion over energy landscapes with thermal noise generated via **Box-Muller Gaussian Normal distribution** \(\mathcal{N}(0, 1)\).
+- **1D & 2D Simulation Modes**:
+  - Global mode switcher in the header allowing one-click toggling between **1D Simulator (CV_x)** and **2D Simulator (CV_x, CV_y)**.
+
+- **1D & 2D Overdamped Langevin (Brownian) Dynamics**:
+  - Simulates particle diffusion over 1D and 2D energy landscapes with thermal noise generated via independent **Box-Muller Gaussian Normal distributions** \(\mathcal{N}(0, 1)\).
   - Reproducible runs using seedable Pseudo-Random Number Generator (`mulberry32`).
 
-- **Flexible Potential Energy Surface (PES)**:
-  - **Gaussian Wells Editor**: Interactively add, remove, and adjust positions and depths of potential wells.
-  - **Custom Mathematical Function $V(x)$**: Define custom energy surfaces using a safe, zero-dependency parser supporting operators (`+`, `-`, `*`, `/`, `^`), functions (`sin`, `cos`, `tan`, `exp`, `log`, `sqrt`, `abs`), constants (`pi`, `e`), and pre-configured presets (Symmetric Double Well, Asymmetric Double Well, Triple Well, Sinusoidal Wavy Surface, Harmonic Well).
+- **Flexible Potential Energy Surfaces (PES)**:
+  - **Gaussian Wells Editor**: Interactively add, remove, and adjust positions and depths of potential wells in 1D and 2D space.
+  - **Custom Mathematical Functions $V(x)$ & $V(x, y)$**: Define custom 1D and 2D energy surfaces using a safe parser supporting variables `x` and `y`, functions (`sin`, `cos`, `tan`, `exp`, `log`, `sqrt`, `abs`), constants (`pi`, `e`), and presets (Symmetric 4-Well, Asymmetric 2D Double Well, Egg-Carton Periodic, Concentric Ring, Mueller-Brown Potential).
+
+- **High-Performance 2D Canvas Heatmap Renderer**:
+  - Renders smooth 2D energy landscape heatmaps (\(V\), \(V+V_B\), \(V_B\), \(F_{est}\)) with scientific color gradients (Inferno/Viridis/Spectral).
+  - Real-time 2D trajectory path tracing and glowing particle marker.
+  - Click anywhere on the 2D canvas to relocate the walker particle.
 
 - **Metadynamics Algorithms**:
   - **Standard Metadynamics**: Constant height Gaussian deposition over time.
-  - **Well-Tempered Metadynamics (WT-MetaD)**: Dynamic Gaussian height scaling based on accumulated bias potential \(w(t) = w_0 \exp\left(-\frac{V_B(x)}{\Delta T}\right)\).
-  - **Real-Time Free Energy Reconstruction**: Live calculation and rendering of the estimated Free Energy Surface \(F_{est}(x)\).
+  - **Well-Tempered Metadynamics (WT-MetaD)**: Dynamic Gaussian height scaling based on accumulated bias potential \(w(t) = w_0 \exp\left(-\frac{V_B(x,y)}{\Delta T}\right)\).
+  - **Real-Time Free Energy Reconstruction**: Live calculation and rendering of estimated Free Energy Surfaces \(F_{est}(x)\) and \(F_{est}(x, y)\).
 
 - **Session Management**:
-  - Save and load complete simulation states, configurations, parameters, and bias history via JSON.
+  - Save and load complete 1D and 2D simulation states, configurations, parameters, trajectories, and bias history via JSON.
 
 ---
 
@@ -92,9 +100,10 @@ _METADYN_WEB/
 ├── metadyn_web.sh             # Bash generator script for initializing Vite + React + Tailwind
 └── metadyn_web/              # Web application project root
     ├── src/
-    │   ├── App.jsx            # Main App wrapper
-    │   ├── MetadynamicsLab.jsx# Core Metadynamics simulation engine & UI
-    │   ├── index.css          # Tailwind CSS directives
+    │   ├── App.jsx            # Main App wrapper with 1D/2D dimension switcher
+    │   ├── MetadynamicsLab.jsx# 1D Metadynamics simulation engine & UI
+    │   ├── MetadynamicsLab2D.jsx # 2D Metadynamics simulation engine & Canvas heatmap UI
+    │   ├── index.css          # Tailwind CSS directives & scrollbar styles
     │   └── main.jsx           # React DOM entrypoint
     ├── index.html             # Single-page HTML document
     ├── package.json           # Dependencies and scripts

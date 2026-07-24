@@ -263,6 +263,7 @@ const MetadynamicsLab = () => {
   const [walkerPos, setWalkerPos] = useState(-2); 
   const [biasPotentials, setBiasPotentials] = useState([]); 
   const [currentDepositionHeight, setCurrentDepositionHeight] = useState(0.5); 
+  const [colvarHistory, setColvarHistory] = useState([{ step: 0, x: -2 }]);
   
   // Seed & PRNG State
   const [seed, setSeed] = useState(12345);
@@ -286,6 +287,7 @@ const MetadynamicsLab = () => {
       biasPotentials,
       walkerPos,
       timeStep,
+      colvarHistory,
       config: {
         gaussianHeight,
         gaussianWidth,
@@ -321,6 +323,7 @@ const MetadynamicsLab = () => {
         setBiasPotentials(data.biasPotentials || []);
         setWalkerPos(data.walkerPos ?? -2);
         setTimeStep(data.timeStep || 0);
+        if (data.colvarHistory) setColvarHistory(data.colvarHistory);
         
         const loadedSeed = data.config?.seed ?? data.seed ?? seed;
         const loadedFixed = data.config?.useFixedSeed ?? true;
@@ -363,6 +366,8 @@ const MetadynamicsLab = () => {
 
   // --- Langevin Integration Step ---
   const stepSimulation = () => {
+    let nextX = walkerPos;
+
     setWalkerPos((prevX) => {
       let force = getForce(prevX, biasPotentials, wells, pesMode, pesFunctionStr);
       const dt = 0.05;
@@ -377,17 +382,19 @@ const MetadynamicsLab = () => {
       let newX = prevX + force * dt + noise;
       if (newX > 4.5) newX = 4.5;
       if (newX < -4.5) newX = -4.5;
+      nextX = newX;
       return newX;
     });
 
     setTimeStep((prevTime) => {
       const nextTime = prevTime + 1;
-      
+      setColvarHistory(prev => [...prev.slice(-2000), { step: nextTime, x: parseFloat(nextX.toFixed(3)) }]);
+
       if (nextTime % depositionStride === 0) {
         let newHeight = gaussianHeight;
 
         if (isWellTempered) {
-          const currentBiasV = getBias(walkerPos, biasPotentials);
+          const currentBiasV = getBias(nextX, biasPotentials);
           const deltaT = temperature * (biasFactor - 1);
           if (deltaT > 0) {
             newHeight = gaussianHeight * Math.exp(-currentBiasV / deltaT);
@@ -398,7 +405,7 @@ const MetadynamicsLab = () => {
 
         setBiasPotentials(prevBias => [
           ...prevBias,
-          { mu: walkerPos, h: newHeight, sigma: gaussianWidth }
+          { mu: nextX, h: newHeight, sigma: gaussianWidth }
         ]);
       }
       return nextTime;
@@ -439,6 +446,7 @@ const MetadynamicsLab = () => {
 
     const startPos = pesMode === 'wells' ? (wells.length > 0 ? wells[0].pos : 0) : 0;
     setWalkerPos(startPos);
+    setColvarHistory([{ step: 0, x: startPos }]);
   };
 
   const generateNewSeed = () => {
@@ -866,22 +874,19 @@ const MetadynamicsLab = () => {
         </div>
 
         {/* Right Column: Interactive Stage & Graphs (8 cols) */}
-        <div className="lg:col-span-8 flex flex-col space-y-5">
+        <div className="lg:col-span-8 flex flex-col space-y-4">
           
           {/* Main Stage Chart Container */}
-          <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-2xl p-5 shadow-2xl flex flex-col min-h-[580px] relative">
-            <div className="flex justify-between items-center mb-4">
+          <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-2xl p-4 shadow-2xl flex flex-col min-h-[490px] h-[520px] relative">
+            <div className="flex justify-between items-center mb-2">
               <div>
-                <h3 className="font-bold text-slate-100 flex items-center gap-2 text-base">
-                  <TrendingUp size={18} className="text-cyan-400" /> 
+                <h3 className="font-bold text-slate-100 flex items-center gap-2 text-sm">
+                  <TrendingUp size={16} className="text-cyan-400" /> 
                   Real-Time Dynamics & FES Reconstruction
                 </h3>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Overdamped Langevin Diffusion & Accumulated Bias Potential
-                </p>
               </div>
               <div className="flex items-center gap-2">
-                <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border ${
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
                   isWellTempered 
                     ? 'bg-indigo-950/80 text-indigo-300 border-indigo-800/80' 
                     : 'bg-emerald-950/80 text-emerald-300 border-emerald-800/80'
@@ -892,9 +897,9 @@ const MetadynamicsLab = () => {
             </div>
 
             {/* Recharts Canvas */}
-            <div className="flex-1 w-full min-h-[440px]">
+            <div className="flex-1 w-full min-h-[430px]">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData} margin={{ top: 20, right: 25, left: 0, bottom: 25 }}>
+                <LineChart data={chartData} margin={{ top: 10, right: 20, left: -10, bottom: 15 }}>
                   <defs>
                     <linearGradient id="biasGradient" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#ef4444" stopOpacity={0.25}/>
@@ -908,18 +913,18 @@ const MetadynamicsLab = () => {
                     type="number" 
                     domain={[-4.5, 4.5]} 
                     stroke="#94a3b8" 
-                    fontSize={11}
+                    fontSize={10}
                     tickCount={10}
-                    label={{ value: 'Collective Variable (CV)', position: 'bottom', offset: 15, fill: '#94a3b8', fontSize: 12 }} 
+                    label={{ value: 'Collective Variable (CV)', position: 'bottom', offset: 10, fill: '#94a3b8', fontSize: 11 }} 
                   />
                   <YAxis 
                     domain={yDomain} 
                     stroke="#94a3b8" 
-                    fontSize={11}
-                    label={{ value: 'Energy (kJ/mol)', angle: -90, position: 'insideLeft', fill: '#94a3b8', fontSize: 12 }} 
+                    fontSize={10}
+                    label={{ value: 'Energy (kJ/mol)', angle: -90, position: 'insideLeft', fill: '#94a3b8', fontSize: 11 }} 
                   />
                   <Tooltip content={<CustomGraphTooltip />} />
-                  <Legend verticalAlign="top" height={36} wrapperStyle={{ paddingBottom: '10px', fontSize: '12px' }}/>
+                  <Legend verticalAlign="top" height={28} wrapperStyle={{ paddingBottom: '5px', fontSize: '11px' }}/>
                   
                   {/* Accumulated Bias Area */}
                   <Area 
@@ -936,7 +941,7 @@ const MetadynamicsLab = () => {
                     type="monotone" 
                     dataKey="PES" 
                     stroke="#38bdf8" 
-                    strokeWidth={3} 
+                    strokeWidth={2.5} 
                     dot={false} 
                     isAnimationActive={false} 
                     name="Original PES V(x)" 
@@ -947,7 +952,7 @@ const MetadynamicsLab = () => {
                     type="monotone" 
                     dataKey="Total" 
                     stroke="#34d399" 
-                    strokeWidth={2.5} 
+                    strokeWidth={2} 
                     strokeDasharray="5 5" 
                     dot={false} 
                     isAnimationActive={false} 
@@ -959,7 +964,7 @@ const MetadynamicsLab = () => {
                     type="monotone" 
                     dataKey="FES_Est" 
                     stroke="#c084fc" 
-                    strokeWidth={2.5} 
+                    strokeWidth={2} 
                     strokeDasharray="8 4" 
                     dot={false} 
                     isAnimationActive={false} 
@@ -970,10 +975,10 @@ const MetadynamicsLab = () => {
                   <ReferenceDot 
                     x={walkerPos} 
                     y={currentPES + currentBiasVal} 
-                    r={7} 
+                    r={6} 
                     fill="#06b6d4" 
                     stroke="#ffffff" 
-                    strokeWidth={2.5} 
+                    strokeWidth={2} 
                     isAnimationActive={false} 
                   />
                 </LineChart>
@@ -981,23 +986,73 @@ const MetadynamicsLab = () => {
             </div>
           </div>
 
+          {/* COLVAR Time-Series Chart Card */}
+          <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-2xl p-4 shadow-xl space-y-2">
+            <div className="flex justify-between items-center pb-1.5 border-b border-slate-800">
+              <div>
+                <h3 className="font-bold text-slate-100 flex items-center gap-2 text-xs">
+                  <Activity size={14} className="text-cyan-400" />
+                  COLVAR Time-Series Trajectory: x(t)
+                </h3>
+              </div>
+              <span className="text-[10px] font-mono text-cyan-400 bg-slate-950 px-2 py-0.5 rounded-lg border border-slate-800 font-bold">
+                CV x = {walkerPos.toFixed(3)}
+              </span>
+            </div>
+
+            <div className="h-32 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={colvarHistory} margin={{ top: 5, right: 15, left: -15, bottom: 15 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.3} />
+                  <XAxis 
+                    dataKey="step" 
+                    type="number"
+                    domain={[0, 'auto']}
+                    stroke="#94a3b8" 
+                    fontSize={9} 
+                    label={{ value: 'Step (t)', position: 'bottom', offset: 8, fill: '#94a3b8', fontSize: 10 }} 
+                  />
+                  <YAxis 
+                    domain={[-4.5, 4.5]} 
+                    stroke="#94a3b8" 
+                    fontSize={9} 
+                    label={{ value: 'CV x(t)', angle: -90, position: 'insideLeft', fill: '#94a3b8', fontSize: 10 }} 
+                  />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '0.5rem', fontSize: '11px', padding: '6px 10px' }} 
+                    labelStyle={{ color: '#38bdf8', fontWeight: 'bold' }} 
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="x" 
+                    stroke="#06b6d4" 
+                    strokeWidth={1.5} 
+                    dot={false} 
+                    isAnimationActive={false} 
+                    name="CV x(t)" 
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
           {/* Real-time Dynamics Metric Cards Below Chart */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5 shadow-lg">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-2.5 shadow-lg">
               <span className="text-[10px] text-slate-400 uppercase font-semibold block">Walker Pos (x)</span>
-              <span className="font-mono text-lg font-bold text-cyan-400">{walkerPos.toFixed(3)}</span>
+              <span className="font-mono text-base font-bold text-cyan-400">{walkerPos.toFixed(3)}</span>
             </div>
-            <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5 shadow-lg">
+            <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-2.5 shadow-lg">
               <span className="text-[10px] text-slate-400 uppercase font-semibold block">PES Energy V(x)</span>
-              <span className="font-mono text-lg font-bold text-slate-200">{currentPES.toFixed(3)} <span className="text-xs text-slate-500">kJ/mol</span></span>
+              <span className="font-mono text-base font-bold text-slate-200">{currentPES.toFixed(3)} <span className="text-[10px] text-slate-500">kJ/mol</span></span>
             </div>
-            <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5 shadow-lg">
-              <span className="text-[10px] text-slate-400 uppercase font-semibold block">Bias Energy V_B(x)</span>
-              <span className="font-mono text-lg font-bold text-red-400">{currentBiasVal.toFixed(3)} <span className="text-xs text-slate-500">kJ/mol</span></span>
+            <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-2.5 shadow-lg">
+              <span className="text-[10px] text-slate-400 uppercase font-semibold block">Bias Energy V<sub>B</sub>(x)</span>
+              <span className="font-mono text-base font-bold text-red-400">{currentBiasVal.toFixed(3)} <span className="text-[10px] text-slate-500">kJ/mol</span></span>
             </div>
-            <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3.5 shadow-lg">
+            <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-2.5 shadow-lg">
               <span className="text-[10px] text-slate-400 uppercase font-semibold block">Net Force (-∇V)</span>
-              <span className="font-mono text-lg font-bold text-emerald-400">{currentForce.toFixed(3)}</span>
+              <span className="font-mono text-base font-bold text-emerald-400">{currentForce.toFixed(3)}</span>
             </div>
           </div>
 

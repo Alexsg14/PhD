@@ -179,6 +179,6 @@ Located in [`Repo-SUDOE/`](./Repo-SUDOE/):
 
 ### Metadynamics Web App
 Located in [`_METADYN_WEB/`](./_METADYN_WEB/):
-- **`metadyn_web/`**: React 19 + Vite web application for 1D Overdamped Langevin dynamics and real-time Free Energy Surface (FES) reconstruction using Standard and Well-Tempered Metadynamics (WT-MetaD). Features Box-Muller Gaussian thermal noise, custom mathematical potential functions \(V(x)\), PRNG seed reproducibility (`mulberry32`), presets, and session JSON export/restore.
+- **`metadyn_web/`**: React 19 + Vite web application for 1D and 2D Overdamped Langevin dynamics and real-time Free Energy Surface (FES) reconstruction using Standard and Well-Tempered Metadynamics (WT-MetaD). Features Box-Muller 2D Gaussian thermal noise, custom 1D/2D mathematical potential functions \(V(x)\) & \(V(x,y)\), high-resolution 2D Canvas Heatmap rendering, PRNG seed reproducibility (`mulberry32`), presets, and session JSON export/restore.
 - **`metadyn_web.sh`**: Automated generator script to bootstrap a new, fully-configured instance of the application from scratch with all dependencies (`react`, `vite`, `tailwindcss`, `recharts`, `lucide-react`) and complete source code. See [`_METADYN_WEB/README.md`](./_METADYN_WEB/README.md) for full documentation.
 
