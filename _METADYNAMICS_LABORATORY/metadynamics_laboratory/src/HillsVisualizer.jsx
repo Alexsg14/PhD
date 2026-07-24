@@ -17,7 +17,9 @@ import {
   Award,
   AlertTriangle,
   RefreshCw,
-  Eye
+  Image as ImageIcon,
+  ZoomIn,
+  X
 } from "lucide-react";
 import {
   LineChart,
@@ -29,7 +31,9 @@ import {
   ResponsiveContainer,
   Legend,
   AreaChart,
-  Area
+  Area,
+  ReferenceArea,
+  ReferenceLine
 } from "recharts";
 
 // --- React Error Boundary ---
@@ -117,30 +121,285 @@ function getHeatmapColor(val, minVal, maxVal, palette = "Viridis") {
   const norm = range > 0.0001 ? Math.max(0, Math.min(1, (val - minVal) / range)) : 0;
 
   if (palette === "Inferno") {
-    // 0 (min F, deep well) = bright yellow/gold, 1 (max F, high barrier) = deep violet/black
     const inv = 1 - norm;
     const r = Math.floor(255 * Math.pow(inv, 0.5));
     const g = Math.floor(255 * Math.pow(inv, 1.5));
     const b = Math.floor(255 * Math.pow(inv, 3.0));
     return `rgb(${r},${g},${b})`;
   } else if (palette === "Spectral") {
-    // 0 (min F, well) = Deep Blue (240 deg), 1 (max F, barrier) = Deep Red (0 deg)
     const h = (1 - norm) * 240;
     const l = 15 + norm * 35;
     return `hsl(${h}, 85%, ${l}%)`;
   } else if (palette === "CoolWarm") {
-    // 0 = Bright Cyan/Blue (well), 1 = Dark Slate/Purple (barrier)
     const r = Math.floor(20 + norm * 200);
     const g = Math.floor(180 * (1 - norm));
     const b = Math.floor(240 * (1 - norm * 0.8));
     return `rgb(${r},${g},${b})`;
   } else {
-    // Viridis (Scientific Default): 0 (min F) = Bright Yellow/Cyan, 1 (max F) = Deep Dark Purple/Slate
+    // Viridis (Scientific Default)
     const inv = 1 - norm;
     const r = Math.floor(255 * Math.sin(inv * Math.PI * 0.5));
     const g = Math.floor(255 * Math.pow(inv, 0.8));
     const b = Math.floor(80 + 175 * Math.sin(inv * Math.PI));
     return `rgb(${r},${g},${b})`;
+  }
+}
+
+// --- 1D PMF Plot Exporter matching Matplotlib PMF_subplots layout ---
+function export1DPlot({
+  gridPoints,
+  cvName,
+  energyUnits,
+  energyRefMode = "plateauZero",
+  format = "png",
+  transparent = false
+}) {
+  if (!gridPoints || gridPoints.length === 0) return;
+
+  const width = 1200;
+  const height = 750;
+  const padLeft = 110;
+  const padRight = 60;
+  const padTop = 115;
+  const padBottom = 85;
+
+  const plotW = width - padLeft - padRight;
+  const plotH = height - padTop - padBottom;
+
+  const sVals = gridPoints.map((p) => p.s);
+  const fesVals = gridPoints.map((p) => p.fes);
+
+  const minS = Math.min(...sVals);
+  const maxS = Math.max(...sVals);
+  const rangeS = maxS - minS || 1;
+
+  // 1. Minimum Position & Minimum Energy strictly inside current ROI grid points
+  let minIdx = 0;
+  let minFES = fesVals[0];
+  for (let i = 1; i < fesVals.length; i++) {
+    if (fesVals[i] < minFES) {
+      minFES = fesVals[i];
+      minIdx = i;
+    }
+  }
+  const minS_val = sVals[minIdx];
+
+  // 2. Plateau Position & Energy strictly inside current ROI grid points (rightmost 15% region)
+  const plateauThresholdS = maxS - 0.15 * rangeS;
+  const plateauPts = gridPoints.filter((p) => p.s >= plateauThresholdS);
+
+  let plateauSumY = 0;
+  let plateauSumX = 0;
+  plateauPts.forEach((p) => {
+    plateauSumY += p.fes;
+    plateauSumX += p.s;
+  });
+  const platYVal = plateauPts.length > 0 ? plateauSumY / plateauPts.length : fesVals[fesVals.length - 1];
+  const platXVal = plateauPts.length > 0 ? plateauSumX / plateauPts.length : maxS;
+
+  const minY = Math.min(...fesVals);
+  const maxY = Math.max(...fesVals);
+  const rangeY = maxY - minY || 1;
+
+  // PMF Curve Points
+  const points = gridPoints.map((p) => {
+    const px = padLeft + ((p.s - minS) / rangeS) * plotW;
+    const py = padTop + plotH - ((p.fes - minY) / rangeY) * plotH;
+    return `${px.toFixed(2)},${py.toFixed(2)}`;
+  });
+  const pointsString = points.join(" ");
+
+  // Shaded Region under y=0 (where fes <= 0)
+  const zeroPy = padTop + plotH - ((0 - minY) / rangeY) * plotH;
+  let shadedPath = "";
+  const shadedPoints = [];
+  gridPoints.forEach((p) => {
+    if (p.fes <= 0) {
+      const px = padLeft + ((p.s - minS) / rangeS) * plotW;
+      const py = padTop + plotH - ((p.fes - minY) / rangeY) * plotH;
+      shadedPoints.push({ px, py });
+    }
+  });
+
+  if (shadedPoints.length > 0) {
+    const first = shadedPoints[0];
+    const last = shadedPoints[shadedPoints.length - 1];
+    let pathD = `M ${first.px.toFixed(2)} ${zeroPy.toFixed(2)} `;
+    shadedPoints.forEach((pt) => {
+      pathD += `L ${pt.px.toFixed(2)} ${pt.py.toFixed(2)} `;
+    });
+    pathD += `L ${last.px.toFixed(2)} ${zeroPy.toFixed(2)} Z`;
+    shadedPath = pathD;
+  }
+
+  // Key Line Positions
+  const minPx = padLeft + ((minS_val - minS) / rangeS) * plotW;
+  const minPy = padTop + plotH - ((minFES - minY) / rangeY) * plotH;
+  const bulkPx = padLeft + ((platXVal - minS) / rangeS) * plotW;
+  const plateauPy = padTop + plotH - ((platYVal - minY) / rangeY) * plotH;
+
+  const bgColorAttr = transparent ? "none" : "#ffffff";
+  const textColor = "#1e293b";
+  const axisColor = "#334155";
+  const gridColor = "#e2e8f0";
+
+  // Exact Colors matching Matplotlib PMF_subplots
+  const COLOR_CURVE = "#08306A";     // Dark Navy Blue
+  const COLOR_MIN_X = "#860203";     // Dark Red
+  const COLOR_PLATEAU_X = "#2B8092"; // Teal
+  const COLOR_PLATEAU_Y = "#959800"; // Olive
+
+  // X Ticks (Integer values)
+  let xTicksHTML = "";
+  const startInt = Math.ceil(minS);
+  const endInt = Math.floor(maxS);
+  if (endInt >= startInt && (endInt - startInt) >= 1) {
+    const intRange = endInt - startInt;
+    const step = intRange <= 12 ? 1 : Math.ceil(intRange / 10);
+    for (let val = startInt; val <= endInt; val += step) {
+      const frac = (val - minS) / rangeS;
+      const px = padLeft + frac * plotW;
+      xTicksHTML += `
+        <line x1="${px}" y1="${padTop}" x2="${px}" y2="${padTop + plotH}" stroke="${gridColor}" stroke-dasharray="3,3" />
+        <line x1="${px}" y1="${padTop + plotH}" x2="${px}" y2="${padTop + plotH + 6}" stroke="${axisColor}" stroke-width="1.5" />
+        <text x="${px}" y="${padTop + plotH + 26}" fill="${textColor}" font-family="Inter, sans-serif" font-size="16" font-weight="bold" text-anchor="middle">${val}</text>
+      `;
+    }
+  }
+
+  // Y Ticks
+  let yTicksHTML = "";
+  const numYTicks = 5;
+  for (let t = 0; t <= numYTicks; t++) {
+    const frac = t / numYTicks;
+    const yVal = Math.round(minY + frac * rangeY);
+    const py = padTop + plotH - frac * plotH;
+    yTicksHTML += `
+      <line x1="${padLeft}" y1="${py}" x2="${padLeft + plotW}" y2="${py}" stroke="${gridColor}" stroke-dasharray="3,3" />
+      <line x1="${padLeft - 6}" y1="${py}" x2="${padLeft}" y2="${py}" stroke="${axisColor}" stroke-width="1.5" />
+      <text x="${padLeft - 12}" y="${py + 5}" fill="${textColor}" font-family="Inter, sans-serif" font-size="15" font-weight="bold" text-anchor="end">${yVal}</text>
+    `;
+  }
+
+  // Build SVG XML matching Matplotlib plot
+  const svgString = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">
+    <style>
+      .bg { fill: ${bgColorAttr}; }
+      .axis-label { fill: ${textColor}; font-family: Inter, sans-serif; font-weight: bold; font-size: 18px; }
+      .annot-text { font-family: Inter, sans-serif; font-weight: bold; font-size: 16px; }
+      .legend-text { fill: #1e293b; font-family: Inter, sans-serif; font-size: 14px; font-weight: 600; }
+    </style>
+    ${transparent ? "" : `<rect width="${width}" height="${height}" class="bg" />`}
+
+    <!-- Grid Lines -->
+    ${xTicksHTML}
+    ${yTicksHTML}
+
+    <!-- Shaded DeltaG Region (Olive Green Fill) -->
+    ${shadedPath ? `<path d="${shadedPath}" fill="${COLOR_PLATEAU_Y}" fill-opacity="0.20" />` : ""}
+
+    <!-- Plateau Reference Horizontal Line (y = 0) -->
+    <line x1="${padLeft}" y1="${zeroPy}" x2="${padLeft + plotW}" y2="${zeroPy}" stroke="black" stroke-width="1.5" stroke-dasharray="5,5" opacity="0.8" />
+
+    <!-- Minimum Energy Dotted Horizontal Line -->
+    <line x1="${padLeft}" y1="${minPy}" x2="${padLeft + plotW}" y2="${minPy}" stroke="${COLOR_PLATEAU_Y}" stroke-width="1.8" stroke-dasharray="2,3" opacity="0.9" />
+
+    <!-- Minimum Position Vertical Line (Dark Red) -->
+    <line x1="${minPx}" y1="${padTop}" x2="${minPx}" y2="${padTop + plotH}" stroke="${COLOR_MIN_X}" stroke-width="1.8" stroke-dasharray="6,4" />
+
+    <!-- Bulk Position Vertical Line (Teal) -->
+    <line x1="${bulkPx}" y1="${padTop}" x2="${bulkPx}" y2="${padTop + plotH}" stroke="${COLOR_PLATEAU_X}" stroke-width="1.8" stroke-dasharray="6,4" />
+
+    <!-- PMF Curve Line (Dark Navy Blue) -->
+    <polyline points="${pointsString}" fill="none" stroke="${COLOR_CURVE}" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" />
+
+    <!-- Outer Frame Box -->
+    <rect x="${padLeft}" y="${padTop}" width="${plotW}" height="${plotH}" fill="none" stroke="${axisColor}" stroke-width="2" />
+
+    <!-- Text Annotations directly above lines matching Matplotlib -->
+    <!-- Red Minimum Position Text -->
+    <text x="${minPx}" y="${padTop + 24}" fill="${COLOR_MIN_X}" class="annot-text" text-anchor="middle">${minS_val.toFixed(2)}</text>
+
+    <!-- Teal Plateau Position Text -->
+    <text x="${bulkPx}" y="${padTop + 48}" fill="${COLOR_PLATEAU_X}" class="annot-text" text-anchor="middle">${platXVal.toFixed(2)}</text>
+
+    <!-- Olive Plateau Energy Text floating above dotted line -->
+    <text x="${padLeft + 35}" y="${plateauPy - 10}" fill="${COLOR_PLATEAU_Y}" class="annot-text" text-anchor="start">${Math.abs(minY).toFixed(2)}</text>
+
+    <!-- Axis Titles -->
+    <text x="${padLeft + plotW / 2}" y="${height - 20}" class="axis-label" text-anchor="middle">${cvName || "D.z"} (nm)</text>
+    <text x="32" y="${padTop + plotH / 2}" class="axis-label" text-anchor="middle" transform="rotate(-90 32 ${padTop + plotH / 2})">Free Energy (${energyUnits})</text>
+
+    <!-- Title Centered at Top -->
+    <text x="${padLeft + plotW / 2}" y="${padTop - 14}" fill="#1e293b" font-family="Inter, sans-serif" font-size="24" font-weight="bold" text-anchor="middle">${cvName || "COV"}</text>
+
+    <!-- Upper Right Badge Box (PAR-I) -->
+    <g transform="translate(${padLeft + plotW - 95}, ${padTop + 15})">
+      <rect x="0" y="0" width="80" height="32" rx="6" fill="white" stroke="#1e3a8a" stroke-width="1.2" />
+      <text x="40" y="21" fill="#1e3a8a" font-family="Inter, sans-serif" font-size="15" font-weight="bold" text-anchor="middle">PAR-I</text>
+    </g>
+
+    <!-- Top Multicolumn Legend Box -->
+    <g transform="translate(${padLeft + plotW / 2 - 340}, ${padTop - 60})">
+      <rect x="0" y="0" width="680" height="34" rx="6" fill="white" stroke="#cbd5e1" stroke-width="1.2" />
+
+      <!-- Item 1: PMF -->
+      <line x1="20" y1="17" x2="50" y2="17" stroke="${COLOR_CURVE}" stroke-width="3" />
+      <text x="58" y="21" class="legend-text">PMF</text>
+
+      <!-- Item 2: Minimum (nm) -->
+      <line x1="130" y1="17" x2="160" y2="17" stroke="${COLOR_MIN_X}" stroke-width="2" stroke-dasharray="5,3" />
+      <text x="168" y="21" class="legend-text">Minimum (nm)</text>
+
+      <!-- Item 3: Plateau pos. (nm) -->
+      <line x1="320" y1="17" x2="350" y2="17" stroke="${COLOR_PLATEAU_X}" stroke-width="2" stroke-dasharray="5,3" />
+      <text x="358" y="21" class="legend-text">Plateau pos. (nm)</text>
+
+      <!-- Item 4: Plateau energy (kJ/mol) -->
+      <line x1="510" y1="17" x2="540" y2="17" stroke="${COLOR_PLATEAU_Y}" stroke-width="2" stroke-dasharray="2,2" />
+      <text x="548" y="21" class="legend-text">Plateau energy (${energyUnits})</text>
+    </g>
+  </svg>`;
+
+  if (format === "svg") {
+    const blob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `PMF_${cvName}_profile.svg`;
+    link.click();
+    URL.revokeObjectURL(url);
+  } else {
+    const img = new Image();
+    const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(svgBlob);
+
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+
+      if (!transparent) {
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, width, height);
+      } else {
+        ctx.clearRect(0, 0, width, height);
+      }
+
+      ctx.drawImage(img, 0, 0);
+      URL.revokeObjectURL(url);
+
+      canvas.toBlob((pngBlob) => {
+        const pngUrl = URL.createObjectURL(pngBlob);
+        const link = document.createElement("a");
+        link.href = pngUrl;
+        link.download = `PMF_${cvName}_profile.png`;
+        link.click();
+        URL.revokeObjectURL(pngUrl);
+      }, "image/png");
+    };
+    img.src = url;
   }
 }
 
@@ -152,7 +411,6 @@ function createHillsWorker() {
     const numBinsUser = e.data.numBins || 300;
     const isWtScaling = e.data.isWtScaling !== false;
     const customBiasFactor = e.data.customBiasFactor;
-    const isZeroRefMode = !!e.data.isZeroRefMode;
     const energyUnits = e.data.energyUnits || "kJ/mol";
     const gridMinUser = e.data.gridMinUser;
     const gridMaxUser = e.data.gridMaxUser;
@@ -478,7 +736,7 @@ function createHillsWorker() {
 // --- 2D Canvas Heatmap Component ---
 function Canvas2DHeatmap({
   frameData,
-  isZeroRefMode,
+  energyRefMode,
   energyUnits,
   cvNames,
   hills,
@@ -509,14 +767,13 @@ function Canvas2DHeatmap({
 
     ctx.clearRect(0, 0, width, height);
 
-    // Deep sleek dark background
     ctx.fillStyle = "#090d16";
     ctx.fillRect(0, 0, width, height);
 
-    // Calculate Min/Max FES for color mapping
+    const isZeroRef = energyRefMode !== "raw";
     let minVal = Infinity, maxVal = -Infinity;
     for (let i = 0; i < numBinsX * numBinsY; i++) {
-      const v = isZeroRefMode ? grid2DFlat[i * 2 + 1] : grid2DFlat[i * 2];
+      const v = isZeroRef ? grid2DFlat[i * 2 + 1] : grid2DFlat[i * 2];
       const scaledV = v * unitScale;
       if (scaledV < minVal) minVal = scaledV;
       if (scaledV > maxVal) maxVal = scaledV;
@@ -525,26 +782,23 @@ function Canvas2DHeatmap({
     const binPixelW = plotW / numBinsX;
     const binPixelH = plotH / numBinsY;
 
-    // Render Heatmap Grid Bins
     for (let j = 0; j < numBinsY; j++) {
       for (let i = 0; i < numBinsX; i++) {
         const idx = j * numBinsX + i;
-        const v = isZeroRefMode ? grid2DFlat[idx * 2 + 1] : grid2DFlat[idx * 2];
+        const v = isZeroRef ? grid2DFlat[idx * 2 + 1] : grid2DFlat[idx * 2];
         const valScaled = v * unitScale;
 
         ctx.fillStyle = getHeatmapColor(valScaled, minVal, maxVal, colorPalette);
         const px = padLeft + i * binPixelW;
-        const py = height - padBottom - (j + 1) * binPixelH; // Invert Y for Cartesian grid
+        const py = height - padBottom - (j + 1) * binPixelH;
         ctx.fillRect(px, py, binPixelW + 0.6, binPixelH + 0.6);
       }
     }
 
-    // Draw Outer Plot Frame
     ctx.strokeStyle = "#334155";
     ctx.lineWidth = 1.5;
     ctx.strokeRect(padLeft, padTop, plotW, plotH);
 
-    // Draw Grid Ticks & Numbers for X Axis
     ctx.fillStyle = "#94a3b8";
     ctx.font = "11px Inter, sans-serif";
     ctx.textAlign = "center";
@@ -567,15 +821,13 @@ function Canvas2DHeatmap({
       ctx.lineTo(px, padTop + plotH + 4);
       ctx.stroke();
 
-      ctx.fillText(xVal.toFixed(2), px, padTop + plotH + 18);
+      ctx.fillText(xVal.toFixed(0), px, padTop + plotH + 18);
     }
 
-    // X Axis Label
     ctx.fillStyle = "#f1f5f9";
     ctx.font = "bold 12px Inter, sans-serif";
     ctx.fillText(`${cvNames[0] || "CV1"} Coordinate`, padLeft + plotW / 2, height - 8);
 
-    // Draw Grid Ticks & Numbers for Y Axis
     ctx.textAlign = "right";
     const numTicksY = 5;
     for (let t = 0; t <= numTicksY; t++) {
@@ -599,7 +851,6 @@ function Canvas2DHeatmap({
       ctx.fillText(yVal.toFixed(2), padLeft - 8, py + 4);
     }
 
-    // Y Axis Label
     ctx.save();
     ctx.translate(16, padTop + plotH / 2);
     ctx.rotate(-Math.PI / 2);
@@ -609,14 +860,13 @@ function Canvas2DHeatmap({
     ctx.fillText(`${cvNames[1] || "CV2"} Coordinate`, 0, 0);
     ctx.restore();
 
-    // Render Vertical Colorbar Legend
     const barX = padLeft + plotW + 20;
     const barY = padTop;
     const barW = 16;
     const barH = plotH;
 
     for (let py = 0; py < barH; py++) {
-      const frac = 1 - py / barH; // Top is maxVal, Bottom is minVal
+      const frac = 1 - py / barH;
       const valScaled = minVal + frac * (maxVal - minVal);
       ctx.fillStyle = getHeatmapColor(valScaled, minVal, maxVal, colorPalette);
       ctx.fillRect(barX, barY + py, barW, 1);
@@ -637,7 +887,6 @@ function Canvas2DHeatmap({
     ctx.fillStyle = "#38bdf8";
     ctx.fillText(`F [${energyUnits}]`, barX, barY - 8);
 
-    // Draw Trajectory Path Overlay
     if (showTrajectory && hills && hills.length > 0) {
       const activeHills = hills.slice(0, frameData.activeHillsCount);
       if (activeHills.length > 0) {
@@ -657,7 +906,6 @@ function Canvas2DHeatmap({
         }
         ctx.stroke();
 
-        // Glowing Active Particle Marker
         const last = activeHills[activeHills.length - 1];
         const lastPx = padLeft + ((last.cvs[0] - gridMin1) / (gridMax1 - gridMin1 || 1)) * plotW;
         const lastPy = height - padBottom - ((last.cvs[1] - gridMin2) / (gridMax2 - gridMin2 || 1)) * plotH;
@@ -674,9 +922,8 @@ function Canvas2DHeatmap({
         ctx.stroke();
       }
     }
-  }, [frameData, isZeroRefMode, energyUnits, cvNames, hills, colorPalette, showTrajectory]);
+  }, [frameData, energyRefMode, energyUnits, cvNames, hills, colorPalette, showTrajectory]);
 
-  // Handle Canvas Mouse Hover
   const handleMouseMove = (e) => {
     if (!canvasRef.current || !frameData || !frameData.grid2DFlat) return;
     const rect = canvasRef.current.getBoundingClientRect();
@@ -709,7 +956,7 @@ function Canvas2DHeatmap({
     const binJ = Math.min(numBinsY - 1, Math.max(0, Math.floor(normY * numBinsY)));
 
     const idx = binJ * numBinsX + binI;
-    const rawVal = isZeroRefMode ? grid2DFlat[idx * 2 + 1] : grid2DFlat[idx * 2];
+    const rawVal = energyRefMode !== "raw" ? grid2DFlat[idx * 2 + 1] : grid2DFlat[idx * 2];
     const fesVal = parseFloat((rawVal * unitScale).toFixed(3));
 
     setHoverInfo({
@@ -723,7 +970,6 @@ function Canvas2DHeatmap({
 
   return (
     <div className="flex flex-col items-center space-y-4 relative w-full">
-      {/* Top Floating Control Bar */}
       <div className="flex flex-wrap justify-between items-center w-full px-1 text-xs gap-2">
         <label className="flex items-center gap-2 cursor-pointer bg-slate-950/80 px-3 py-1.5 rounded-xl border border-slate-800 hover:border-slate-700 transition-all text-slate-300">
           <input
@@ -746,7 +992,6 @@ function Canvas2DHeatmap({
         )}
       </div>
 
-      {/* Canvas Heatmap Display */}
       <div className="relative border border-slate-800 rounded-2xl overflow-hidden shadow-2xl bg-slate-950 p-2">
         <canvas
           ref={canvasRef}
@@ -757,7 +1002,6 @@ function Canvas2DHeatmap({
           className="cursor-crosshair block rounded-xl"
         />
 
-        {/* Floating Crosshair Indicator */}
         {hoverInfo && (
           <div
             className="absolute pointer-events-none border border-cyan-400/60 rounded-full w-5 h-5 -translate-x-1/2 -translate-y-1/2 shadow-lg shadow-cyan-500/50"
@@ -783,6 +1027,15 @@ function HillsVisualizerInner() {
   const [activeTab, setActiveTab] = useState("fes");
   const [colorPalette, setColorPalette] = useState("Viridis");
 
+  // Export Modal State
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportFormat, setExportFormat] = useState("png");
+  const [exportTransparent, setExportTransparent] = useState(false);
+
+  // Interactive Mouse Box Zoom State
+  const [refAreaLeft, setRefAreaLeft] = useState("");
+  const [refAreaRight, setRefAreaRight] = useState("");
+
   // Applied parameters used for computation
   const [numBins, setNumBins] = useState(300);
   const [customBiasFactor, setCustomBiasFactor] = useState("");
@@ -800,13 +1053,47 @@ function HillsVisualizerInner() {
   const [playbackSpeed, setPlaybackSpeed] = useState(60);
 
   const [energyUnits, setEnergyUnits] = useState("kJ/mol");
-  const [isZeroRefMode, setIsZeroRefMode] = useState(false);
+  const [energyRefMode, setEnergyRefMode] = useState("plateauZero"); // "raw" | "minZero" | "plateauZero"
   const [isWtScaling, setIsWtScaling] = useState(true);
 
   const fileInputRef = useRef(null);
   const rawTextRef = useRef("");
   const currentFileNameRef = useRef("");
   const isMounting = useRef(true);
+
+  // Mouse Drag Zoom Handlers
+  const handleMouseDown = (e) => {
+    if (e && e.activeLabel !== undefined && e.activeLabel !== null) {
+      setRefAreaLeft(e.activeLabel);
+      setRefAreaRight(e.activeLabel);
+    }
+  };
+
+  const handleMouseMoveChart = (e) => {
+    if (refAreaLeft && e && e.activeLabel !== undefined && e.activeLabel !== null) {
+      setRefAreaRight(e.activeLabel);
+    }
+  };
+
+  const handleMouseUp = () => {
+    if (refAreaLeft !== "" && refAreaRight !== "" && refAreaLeft !== refAreaRight) {
+      let x1 = parseFloat(refAreaLeft);
+      let x2 = parseFloat(refAreaRight);
+      if (!isNaN(x1) && !isNaN(x2)) {
+        if (x1 > x2) [x1, x2] = [x2, x1];
+
+        const minStr = x1.toFixed(3);
+        const maxStr = x2.toFixed(3);
+
+        setGridMinUser(minStr);
+        setGridMaxUser(maxStr);
+        setInputGridMin(minStr);
+        setInputGridMax(maxStr);
+      }
+    }
+    setRefAreaLeft("");
+    setRefAreaRight("");
+  };
 
   // Drag and Drop Handlers
   const handleDragOver = (e) => {
@@ -898,7 +1185,6 @@ function HillsVisualizerInner() {
       numBins,
       isWtScaling,
       customBiasFactor,
-      isZeroRefMode,
       energyUnits,
       gridMinUser,
       gridMaxUser
@@ -931,7 +1217,6 @@ function HillsVisualizerInner() {
     e.target.value = null;
   };
 
-  // Explicit Update Button Handler for Grid Parameters
   const handleApplyGridParams = (e) => {
     if (e) e.preventDefault();
     setNumBins(parseInt(inputNumBins) || 300);
@@ -947,7 +1232,6 @@ function HillsVisualizerInner() {
     setGridMaxUser("");
   };
 
-  // Dynamically formatted grid frame data
   const currentFrameData = useMemo(() => {
     if (!hillsData || !hillsData.timelineGrids || hillsData.timelineGrids.length === 0) return null;
     const idx = Math.max(0, Math.min(99, timeStepProgress - 1));
@@ -956,25 +1240,84 @@ function HillsVisualizerInner() {
 
     if (!hillsData.is2D && rawFrame.gridPoints) {
       const unitScale = energyUnits === "kcal/mol" ? 0.239006 : 1.0;
-      const formattedPoints = rawFrame.gridPoints.map((p) => {
-        const rawVal = isZeroRefMode ? p.zeroFes : p.rawFes;
+      let pts = rawFrame.gridPoints;
+
+      // Filter grid points strictly to current ROI bounds if set
+      const userMin = gridMinUser !== "" && !isNaN(parseFloat(gridMinUser)) ? parseFloat(gridMinUser) : -Infinity;
+      const userMax = gridMaxUser !== "" && !isNaN(parseFloat(gridMaxUser)) ? parseFloat(gridMaxUser) : Infinity;
+
+      const roiPts = pts.filter((p) => p.s >= userMin && p.s <= userMax);
+      const activePts = roiPts.length > 0 ? roiPts : pts;
+
+      // Calculate bulk plateau energy level strictly inside active ROI (rightmost 15% region)
+      const plateauThresholdS = activePts[activePts.length - 1].s - 0.15 * (activePts[activePts.length - 1].s - activePts[0].s || 1);
+      const plateauPts = activePts.filter((p) => p.s >= plateauThresholdS);
+
+      let bulkSum = 0;
+      let bulkCount = 0;
+      let bulkSumX = 0;
+      for (let b = 0; b < plateauPts.length; b++) {
+        bulkSum += plateauPts[b].rawFes;
+        bulkSumX += plateauPts[b].s;
+        bulkCount++;
+      }
+      const bulkFes = bulkCount > 0 ? bulkSum / bulkCount : activePts[activePts.length - 1].rawFes;
+      const bulkS = bulkCount > 0 ? bulkSumX / bulkCount : activePts[activePts.length - 1].s;
+
+      let minVal = Infinity;
+      let minS_val = activePts[0].s;
+
+      const formattedPoints = activePts.map((p) => {
+        let val = p.rawFes;
+        if (energyRefMode === "minZero") {
+          val = p.zeroFes;
+        } else if (energyRefMode === "plateauZero") {
+          val = p.rawFes - bulkFes;
+        }
+
+        const scaledFes = parseFloat((val * unitScale).toFixed(3));
+        if (scaledFes < minVal) {
+          minVal = scaledFes;
+          minS_val = p.s;
+        }
+
         return {
           s: p.s,
-          fes: parseFloat((rawVal * unitScale).toFixed(3)),
+          fes: scaledFes,
           vBias: parseFloat((p.vBiasRaw * unitScale).toFixed(3))
         };
       });
 
       return {
         ...rawFrame,
-        gridPoints: formattedPoints
+        gridPoints: formattedPoints,
+        bulkS: parseFloat(bulkS.toFixed(3)),
+        minS_val: parseFloat(minS_val.toFixed(3)),
+        minVal: parseFloat(minVal.toFixed(3)),
+        bulkFesScaled: parseFloat((bulkFes * unitScale).toFixed(3))
       };
     }
 
     return rawFrame;
-  }, [hillsData, timeStepProgress, isZeroRefMode, energyUnits]);
+  }, [hillsData, timeStepProgress, energyRefMode, energyUnits, gridMinUser, gridMaxUser]);
 
-  // Downsampled datasets for Recharts line charts
+  // Unique Integer X Ticks array for Recharts AreaChart
+  const xAxisTicks = useMemo(() => {
+    if (!currentFrameData?.gridPoints || currentFrameData.gridPoints.length === 0) return undefined;
+    const pts = currentFrameData.gridPoints;
+    const minS = Math.floor(pts[0].s);
+    const maxS = Math.ceil(pts[pts.length - 1].s);
+    const range = maxS - minS;
+    if (range <= 0) return undefined;
+
+    const ticks = [];
+    const step = range <= 15 ? 1 : Math.ceil(range / 10);
+    for (let val = minS; val <= maxS; val += step) {
+      ticks.push(val);
+    }
+    return ticks;
+  }, [currentFrameData]);
+
   const chartHeightData = useMemo(() => {
     if (!hillsData || !hillsData.hills) return [];
     return downsampleArray(hillsData.hills, 800);
@@ -990,7 +1333,6 @@ function HillsVisualizerInner() {
     return downsampleArray(raw, 800);
   }, [hillsData]);
 
-  // Overall Statistics Summary
   const stats = useMemo(() => {
     if (!hillsData || !hillsData.hills || hillsData.hills.length === 0) return null;
     const hills = hillsData.hills;
@@ -1032,7 +1374,6 @@ function HillsVisualizerInner() {
     };
   }, [hillsData]);
 
-  // Export calculated FES as PLUMED compatible fes.dat (1D or 2D)
   const handleExportFES = () => {
     if (!currentFrameData || !hillsData) return;
 
@@ -1045,7 +1386,8 @@ function HillsVisualizerInner() {
         `#! SET periodic_${hillsData.cvNames[0] || "CV1"} false`,
         `#! Reconstructed with Metadynamics Laboratory HILLS Inspector`,
         `#! BiasFactor: ${hillsData.effectiveBiasFactor}`,
-        `#! Energy Unit: ${energyUnits}`
+        `#! Energy Unit: ${energyUnits}`,
+        `#! Energy Reference Mode: ${energyRefMode}`
       ].join("\n");
 
       const lines = currentFrameData.gridPoints.map((p) => `  ${p.s}   ${p.fes}   0.0000`);
@@ -1083,7 +1425,7 @@ function HillsVisualizerInner() {
         for (let i = 0; i < numBinsX; i++) {
           const x = gridMin1 + i * stepX;
           const idx = j * numBinsX + i;
-          const rawVal = isZeroRefMode ? grid2DFlat[idx * 2 + 1] : grid2DFlat[idx * 2];
+          const rawVal = energyRefMode !== "raw" ? grid2DFlat[idx * 2 + 1] : grid2DFlat[idx * 2];
           const valScaled = (rawVal * unitScale).toFixed(4);
           lines.push(`  ${x.toFixed(4)}   ${y.toFixed(4)}   ${valScaled}   0.0000   0.0000`);
         }
@@ -1108,6 +1450,110 @@ function HillsVisualizerInner() {
       onDrop={handleDrop}
       className="flex flex-col w-full max-w-7xl mx-auto space-y-6 relative min-h-[75vh]"
     >
+      {/* Export Plot Options Modal (Temporarily Deactivated) */}
+      {false && showExportModal && currentFrameData?.gridPoints && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl max-w-md w-full space-y-5 relative">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <ImageIcon size={18} className="text-cyan-400" />
+                Download 1D PMF Plot
+              </h3>
+              <button
+                onClick={() => setShowExportModal(false)}
+                className="text-slate-400 hover:text-white font-bold text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              {(gridMinUser || gridMaxUser) && (
+                <div className="bg-cyan-950/80 border border-cyan-700/60 p-2.5 rounded-xl text-cyan-300 font-mono flex items-center justify-between text-[11px]">
+                  <span>Active Zoom ROI: [{gridMinUser || "Auto"}, {gridMaxUser || "Auto"}]</span>
+                  <span className="text-cyan-400 font-bold">ROI Filter Enabled</span>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1.5">File Format:</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setExportFormat("png")}
+                    className={`py-2 px-3 rounded-xl font-bold border transition-all ${
+                      exportFormat === "png"
+                        ? "bg-cyan-500 text-slate-950 border-cyan-400"
+                        : "bg-slate-950 text-slate-400 border-slate-800 hover:text-white"
+                    }`}
+                  >
+                    PNG (Image)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setExportFormat("svg")}
+                    className={`py-2 px-3 rounded-xl font-bold border transition-all ${
+                      exportFormat === "svg"
+                        ? "bg-cyan-500 text-slate-950 border-cyan-400"
+                        : "bg-slate-950 text-slate-400 border-slate-800 hover:text-white"
+                    }`}
+                  >
+                    SVG (Vector)
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1.5">Background Style:</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setExportTransparent(false)}
+                    className={`py-2 px-3 rounded-xl font-bold border transition-all ${
+                      !exportTransparent
+                        ? "bg-indigo-600 text-white border-indigo-400"
+                        : "bg-slate-950 text-slate-400 border-slate-800 hover:text-white"
+                    }`}
+                  >
+                    Solid White (#FFFFFF)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setExportTransparent(true)}
+                    className={`py-2 px-3 rounded-xl font-bold border transition-all ${
+                      exportTransparent
+                        ? "bg-indigo-600 text-white border-indigo-400"
+                        : "bg-slate-950 text-slate-400 border-slate-800 hover:text-white"
+                    }`}
+                  >
+                    Transparent
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => {
+                  export1DPlot({
+                    gridPoints: currentFrameData.gridPoints,
+                    cvName: hillsData.cvNames[0] || "D.z",
+                    energyUnits,
+                    energyRefMode,
+                    format: exportFormat,
+                    transparent: exportTransparent
+                  });
+                  setShowExportModal(false);
+                }}
+                className="w-full py-2.5 bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/20"
+              >
+                <Download size={16} /> Download {exportFormat.toUpperCase()} Plot
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Drag and Drop Hover Overlay */}
       {isDraggingFile && (
         <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex flex-col items-center justify-center border-4 border-dashed border-cyan-400 rounded-3xl m-4 transition-all">
@@ -1358,11 +1804,25 @@ function HillsVisualizerInner() {
                 <p className="text-slate-400 text-xs">
                   {hillsData.is2D
                     ? "2D Free Energy Surface reconstructed from 2D Gaussian HILLS summation"
-                    : "Free Energy Surface reconstruction from sum of gaussian HILLS"}
+                    : "Click and drag across the chart to select a vertical zoom region (ROI) for export"}
                 </p>
               </div>
 
               <div className="flex items-center gap-2">
+                {!hillsData.is2D && (gridMinUser || gridMaxUser) && (
+                  <div className="flex items-center gap-2 bg-cyan-950/90 border border-cyan-600/70 px-3 py-1 rounded-xl text-xs text-cyan-300 font-mono shadow-sm">
+                    <ZoomIn size={14} className="text-cyan-400 animate-pulse" />
+                    <span>ROI: [{gridMinUser || "Min"}, {gridMaxUser || "Max"}]</span>
+                    <button
+                      onClick={handleResetGridBounds}
+                      className="ml-1 text-slate-400 hover:text-white font-bold p-0.5 rounded"
+                      title="Reset Zoom / Clear ROI"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                )}
+
                 {hillsData.is2D && (
                   <select
                     value={colorPalette}
@@ -1374,6 +1834,17 @@ function HillsVisualizerInner() {
                     <option value="Spectral">Spectral (Rainbow)</option>
                     <option value="CoolWarm">Cool-Warm (Blue-Red)</option>
                   </select>
+                )}
+
+                {/* Download Plot (PNG/SVG) Button (Temporarily Deactivated) */}
+                {false && !hillsData.is2D && (
+                  <button
+                    onClick={() => setShowExportModal(true)}
+                    className="px-3 py-1.5 bg-cyan-950 hover:bg-cyan-900 text-cyan-300 border border-cyan-700/60 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm"
+                    title="Download 1D PMF Plot (PNG/SVG)"
+                  >
+                    <ImageIcon size={14} /> Download Plot (PNG/SVG)
+                  </button>
                 )}
 
                 <button
@@ -1388,11 +1859,14 @@ function HillsVisualizerInner() {
 
             {/* 1D AreaChart vs 2D Heatmap Canvas */}
             {!hillsData.is2D ? (
-              <div className="h-80 w-full pt-2">
+              <div className="h-80 w-full pt-2 select-none">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart
                     data={currentFrameData.gridPoints}
                     margin={{ top: 15, right: 25, left: 10, bottom: 20 }}
+                    onMouseDown={handleMouseDown}
+                    onMouseMove={handleMouseMoveChart}
+                    onMouseUp={handleMouseUp}
                   >
                     <defs>
                       <linearGradient id="fesGradient" x1="0" y1="0" x2="0" y2="1">
@@ -1403,6 +1877,9 @@ function HillsVisualizerInner() {
                     <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
                     <XAxis
                       dataKey="s"
+                      type="number"
+                      domain={['dataMin', 'dataMax']}
+                      ticks={xAxisTicks}
                       stroke="#64748b"
                       tick={{ fill: "#94a3b8", fontSize: 11 }}
                       label={{
@@ -1416,7 +1893,7 @@ function HillsVisualizerInner() {
                     <YAxis
                       stroke="#64748b"
                       tick={{ fill: "#94a3b8", fontSize: 11 }}
-                      domain={isZeroRefMode ? [0, 'auto'] : ['auto', 'auto']}
+                      domain={['auto', 'auto']}
                       label={{
                         value: `Free Energy F(s) [${energyUnits}]`,
                         angle: -90,
@@ -1457,13 +1934,48 @@ function HillsVisualizerInner() {
                       fill="url(#fesGradient)"
                       isAnimationActive={false}
                     />
+
+                    {/* Reference Lines when Bulk Plateau mode is active */}
+                    {energyRefMode === "plateauZero" && currentFrameData?.bulkS !== undefined && (
+                      <>
+                        {/* Horizontal Plateau Reference Line (y = 0) */}
+                        <ReferenceLine
+                          y={0}
+                          stroke="#cbd5e1"
+                          strokeWidth={1.5}
+                          strokeDasharray="5 5"
+                          label={{ value: "Plateau (y=0)", fill: "#cbd5e1", fontSize: 11, position: "top" }}
+                        />
+
+                        {/* Vertical Plateau Measured Position Line (Teal #2B8092) */}
+                        <ReferenceLine
+                          x={currentFrameData.bulkS}
+                          stroke="#2B8092"
+                          strokeWidth={1.5}
+                          strokeDasharray="6 4"
+                          label={{ value: "Plateau Position", fill: "#2B8092", fontSize: 11, position: "insideTopRight" }}
+                        />
+                      </>
+                    )}
+
+                    {/* Interactive Mouse Drag Selection Box */}
+                    {refAreaLeft && refAreaRight ? (
+                      <ReferenceArea
+                        x1={refAreaLeft}
+                        x2={refAreaRight}
+                        strokeOpacity={0.8}
+                        stroke="#38bdf8"
+                        fill="#0284c7"
+                        fillOpacity={0.35}
+                      />
+                    ) : null}
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
             ) : (
               <Canvas2DHeatmap
                 frameData={currentFrameData}
-                isZeroRefMode={isZeroRefMode}
+                energyRefMode={energyRefMode}
                 energyUnits={energyUnits}
                 cvNames={hillsData.cvNames}
                 hills={hillsData.hills}
@@ -1530,30 +2042,52 @@ function HillsVisualizerInner() {
                 Energy Display Mode
               </h3>
 
-              <div className="space-y-2.5 text-xs">
-                <label className="flex items-center justify-between p-2.5 bg-slate-950 rounded-xl border border-slate-800/80 cursor-pointer hover:border-slate-700 transition-all">
-                  <span className="font-semibold text-slate-200">
-                    Direct Absolute Potential [F(s) = -V(s)]
-                  </span>
+              <div className="space-y-2 text-xs">
+                <label className="flex items-start justify-between p-2.5 bg-slate-950 rounded-xl border border-slate-800/80 cursor-pointer hover:border-slate-700 transition-all gap-2">
+                  <div>
+                    <div className="font-semibold text-slate-200">Bulk Plateau Reference [F(bulk) = 0]</div>
+                    <div className="text-[10px] text-slate-400 mt-0.5 leading-tight">
+                      Sets bulk solvent energy to 0, minimum well depth is -ΔG
+                    </div>
+                  </div>
                   <input
                     type="radio"
-                    name="zeroRef"
-                    checked={!isZeroRefMode}
-                    onChange={() => setIsZeroRefMode(false)}
-                    className="accent-indigo-500"
+                    name="energyRef"
+                    checked={energyRefMode === "plateauZero"}
+                    onChange={() => setEnergyRefMode("plateauZero")}
+                    className="accent-indigo-500 mt-1"
                   />
                 </label>
 
-                <label className="flex items-center justify-between p-2.5 bg-slate-950 rounded-xl border border-slate-800/80 cursor-pointer hover:border-slate-700 transition-all">
-                  <span className="font-semibold text-slate-200">
-                    Relative Potential (Minimum = 0)
-                  </span>
+                <label className="flex items-start justify-between p-2.5 bg-slate-950 rounded-xl border border-slate-800/80 cursor-pointer hover:border-slate-700 transition-all gap-2">
+                  <div>
+                    <div className="font-semibold text-slate-200">Relative to Minimum [F(min) = 0]</div>
+                    <div className="text-[10px] text-slate-400 mt-0.5 leading-tight">
+                      Sets minimum bound well to 0, bulk plateau is +ΔG
+                    </div>
+                  </div>
                   <input
                     type="radio"
-                    name="zeroRef"
-                    checked={isZeroRefMode}
-                    onChange={() => setIsZeroRefMode(true)}
-                    className="accent-indigo-500"
+                    name="energyRef"
+                    checked={energyRefMode === "minZero"}
+                    onChange={() => setEnergyRefMode("minZero")}
+                    className="accent-indigo-500 mt-1"
+                  />
+                </label>
+
+                <label className="flex items-start justify-between p-2.5 bg-slate-950 rounded-xl border border-slate-800/80 cursor-pointer hover:border-slate-700 transition-all gap-2">
+                  <div>
+                    <div className="font-semibold text-slate-200">Direct Absolute Potential [F(s) = -V(s)]</div>
+                    <div className="text-[10px] text-slate-400 mt-0.5 leading-tight">
+                      Raw unshifted cumulative bias potential
+                    </div>
+                  </div>
+                  <input
+                    type="radio"
+                    name="energyRef"
+                    checked={energyRefMode === "raw"}
+                    onChange={() => setEnergyRefMode("raw")}
+                    className="accent-indigo-500 mt-1"
                   />
                 </label>
               </div>
