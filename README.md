@@ -24,8 +24,10 @@ PhD/
 │   ├── VR_BFACTOR/           # Energy attribution to receptor B-factors from AutoDock Vina
 │   ├── nanover_openmm_guide.md        # Detailed guide for NanoVer + OpenMM
 │   └── nanover_openmm_interactive.ipynb # Jupyter notebook for interactive VR sessions
-├── _METADYN_WEB/             # Web application for 1D Metadynamics & WT-MetaD simulation
-│   └── metadyn_web/          # React 19 + Vite + Tailwind laboratory app
+├── _METADYNAMICS_LABORATORY/ # Interactive 1D/2D Metadynamics & PLUMED HILLS Laboratory
+│   ├── metadynamics_laboratory/      # React 19 + Vite + Tailwind web application
+│   ├── metadynamics_laboratory.sh   # Automated project generator script
+│   └── README.md                     # Laboratory specific documentation
 └── README.md                 # Main project documentation & VR setup guide
 ```
 
@@ -49,7 +51,7 @@ PhD/
   - [Molecular Dynamics Analysis](#molecular-dynamics-analysis)
   - [Proteomics Processing](#proteomics-processing)
   - [SUDOE VR B-Factor Pipeline](#sudoe-vr-b-factor-pipeline)
-  - [Metadynamics Web App](#metadynamics-web-app)
+  - [Metadynamics Laboratory](#metadynamics-laboratory)
 
 ---
 
@@ -177,8 +179,9 @@ Located in [`Repo-SUDOE/`](./Repo-SUDOE/):
 - **`split_and_convert_pdbqt_to_pdb.py`**: Converts multi-model PDBQT docking outputs into individual PDB models using Open Babel.
 - **`nanover_openmm_guide.md`**: Guide for setting up OpenMM molecular mechanics simulations inside NanoVer.
 
-### Metadynamics Web App
-Located in [`_METADYN_WEB/`](./_METADYN_WEB/):
-- **`metadyn_web/`**: React 19 + Vite web application for 1D and 2D Overdamped Langevin dynamics and real-time Free Energy Surface (FES) reconstruction using Standard and Well-Tempered Metadynamics (WT-MetaD). Features Box-Muller 2D Gaussian thermal noise, custom 1D/2D mathematical potential functions \(V(x)\) & \(V(x,y)\), high-resolution 2D Canvas Heatmap rendering, PRNG seed reproducibility (`mulberry32`), presets, and session JSON export/restore.
-- **`metadyn_web.sh`**: Automated generator script to bootstrap a new, fully-configured instance of the application from scratch with all dependencies (`react`, `vite`, `tailwindcss`, `recharts`, `lucide-react`) and complete source code. See [`_METADYN_WEB/README.md`](./_METADYN_WEB/README.md) for full documentation.
-
+### Metadynamics Laboratory
+Located in [`_METADYNAMICS_LABORATORY/`](./_METADYNAMICS_LABORATORY/):
+- **`metadynamics_laboratory/`**: React 19 + Vite + Tailwind web application combining 3 modules:
+  1. **1D & 2D Metadynamics Simulators**: Overdamped Langevin dynamics with Box-Muller Gaussian thermal noise, custom 1D/2D potential functions \(V(x)\) & \(V(x,y)\), 2D Canvas heatmap rendering, PRNG seed reproducibility (`mulberry32`), presets, and session JSON export/restore.
+  2. **PLUMED HILLS Visualizer & Inspector**: Non-blocking background Web Worker parsing engine, 60 FPS real-time FES timeline animation, drag-and-drop file upload, energy display modes (\(F = -V\) vs relative), Well-Tempered scaling factor \(\gamma\), multi-stage convergence analysis, and PLUMED `fes.dat` export.
+- **`metadynamics_laboratory.sh`**: Automated generator script to bootstrap a new, fully-configured instance of the laboratory application from scratch with all dependencies (`react`, `vite`, `tailwindcss`, `recharts`, `lucide-react`) and complete source code. See [`_METADYNAMICS_LABORATORY/README.md`](./_METADYNAMICS_LABORATORY/README.md) for full module documentation.
