@@ -24,6 +24,8 @@ PhD/
 │   ├── VR_BFACTOR/           # Energy attribution to receptor B-factors from AutoDock Vina
 │   ├── nanover_openmm_guide.md        # Detailed guide for NanoVer + OpenMM
 │   └── nanover_openmm_interactive.ipynb # Jupyter notebook for interactive VR sessions
+├── _METADYN_WEB/             # Web application for 1D Metadynamics & WT-MetaD simulation
+│   └── metadyn_web/          # React 19 + Vite + Tailwind laboratory app
 └── README.md                 # Main project documentation & VR setup guide
 ```
 
@@ -47,6 +49,7 @@ PhD/
   - [Molecular Dynamics Analysis](#molecular-dynamics-analysis)
   - [Proteomics Processing](#proteomics-processing)
   - [SUDOE VR B-Factor Pipeline](#sudoe-vr-b-factor-pipeline)
+  - [Metadynamics Web App](#metadynamics-web-app)
 
 ---
 
@@ -173,3 +176,9 @@ Located in [`Repo-SUDOE/`](./Repo-SUDOE/):
 - **`VR_BFACTOR/ligand_energy_attribution_bfactor.py`**: Maps AutoDock Vina binding energy ranks onto receptor B-factor fields in PDB files for 3D visual analysis in VR.
 - **`split_and_convert_pdbqt_to_pdb.py`**: Converts multi-model PDBQT docking outputs into individual PDB models using Open Babel.
 - **`nanover_openmm_guide.md`**: Guide for setting up OpenMM molecular mechanics simulations inside NanoVer.
+
+### Metadynamics Web App
+Located in [`_METADYN_WEB/`](./_METADYN_WEB/):
+- **`metadyn_web/`**: React 19 + Vite web application for 1D Overdamped Langevin dynamics and real-time Free Energy Surface (FES) reconstruction using Standard and Well-Tempered Metadynamics (WT-MetaD). Features Box-Muller Gaussian thermal noise, custom mathematical potential functions \(V(x)\), PRNG seed reproducibility (`mulberry32`), presets, and session JSON export/restore.
+- **`metadyn_web.sh`**: Automated generator script to bootstrap a new, fully-configured instance of the application from scratch with all dependencies (`react`, `vite`, `tailwindcss`, `recharts`, `lucide-react`) and complete source code. See [`_METADYN_WEB/README.md`](./_METADYN_WEB/README.md) for full documentation.
+
