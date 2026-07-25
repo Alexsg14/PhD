@@ -26,7 +26,7 @@ Automated processing, statistical analysis, unsupervised clustering, differentia
 
 - **SWATH-MS Data Pipelines:** Preprocessing of raw protein peak areas, filtering contaminant/decoy entries (`RRR` prefixes), immunoglobulin detection, UniProt ID normalization, and sample classification (plasma supernatant `_S` vs pellet `_P`).
 - **Unsupervised Machine Learning:** Feature scaling (`PowerTransformer` Box-Cox / Yeo-Johnson), Principal Component Analysis (PCA), K-Means clustering, silhouette score optimization, and Jaccard cluster stability metrics.
-- **Differential Expression Analysis:** Volcano plots ($\log_2(\text{Fold Change})$ vs $-\log_{10}(p\text{-value})$) with automatic label overlapping adjustment via `adjustText`.
+- **Differential Expression Analysis:** Volcano plots ($\log_2(\text{FC})$ vs. $-\log_{10}(p)$) with automatic label overlapping adjustment via `adjustText`.
 - **Normalization Verification:** Multi-Linear Regression (MLR) normalization factor verification comparing raw vs normalized protein intensities.
 - **Clinical Severity Heatmaps:** Ordering patient clinical profiles by calculated severity metrics and rendering high-resolution (600 DPI) Seaborn heatmaps.
 
@@ -94,7 +94,13 @@ python Data_analysis/Severity_matrix.py
 Standalone script dedicated to calculating statistical significance ($t$-test / Mann-Whitney $U$-test) and log fold changes between clinical clusters.
 
 **Math Formulation:**
-$$\text{FC} = \frac{\bar{X}_{\text{Class 1}}}{\bar{X}_{\text{Class 0}}}, \quad \log_2(\text{FC}) = \log_2\left(\frac{\bar{X}_{\text{Class 1}}}{\bar{X}_{\text{Class 0}}}\right), \quad y = -\log_{10}(p)$$
+
+- **Fold Change (FC):**
+  $$\text{FC} = \frac{\text{mean}_1}{\text{mean}_0}$$
+- **Log2 Fold Change (X-axis):**
+  $$\text{Log}_2(\text{FC}) = \log_2(\text{FC})$$
+- **Statistical Significance (Y-axis):**
+  $$y = -\log_{10}(p\text{-value})$$
 
 **Usage:**
 ```bash
@@ -106,7 +112,9 @@ python Data_analysis/run_volcano.py
 ### 4. MLR Normalization & Fold Change Verification (`fc_S_normalizada_vs_sinnormalizar.py` & `verificacion_MLR.py`)
 
 Statistical validation tools for checking Multi-Linear Regression (MLR) normalization effects on supernatant (`_S`) datasets:
-- **`fc_S_normalizada_vs_sinnormalizar.py`**: Computes $\log_2(\text{FC}_{\text{norm}}) - \log_2(\text{FC}_{\text{raw}})$ to evaluate normalization shifts.
+
+- **`fc_S_normalizada_vs_sinnormalizar.py`**: Computes normalization shifts between MLR-normalized and unnormalized peak areas:
+  $$\Delta \log_2(\text{FC}) = \log_2(\text{FC}_{\text{norm}}) - \log_2(\text{FC}_{\text{sin\_norm}})$$
 - **`verificacion_MLR.py`**: Analyzes per-patient MLR scaling factors, pre-normalization total ion signal distributions, and linear regression fits.
 
 **Usage:**

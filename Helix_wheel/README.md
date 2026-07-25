@@ -100,7 +100,9 @@ Residues are positioned at $100^\circ$ angular increments ($\delta = 100^\circ$,
 ### 2. Mean Hydrophobic Dipole Moment ($\langle \mu_H \rangle$)
 Defined according to Eisenberg et al. (1982):
 
-$$\langle \mu_H \rangle = \frac{1}{N} \sqrt{\left( \sum_{i=1}^N H_i \sin(i \cdot \delta) \right)^2 + \left( \sum_{i=1}^N H_i \cos(i \cdot \delta) \right)^2}$$
+$$
+\langle \mu_H \rangle = \frac{1}{N} \sqrt{\left( \sum_{i=1}^N H_i \sin(i \cdot \delta) \right)^2 + \left( \sum_{i=1}^N H_i \cos(i \cdot \delta) \right)^2}
+$$
 
 where:
 - $N$ is the total number of amino acid residues in the sequence.
@@ -110,18 +112,24 @@ where:
 ### 3. Visual Vector Direction ($\vec{\mu}_H$)
 The 2D visual projection vector used for plotting the hydrophobic arrow on the helical wheel is:
 
-$$\vec{\mu}_H = \left( \frac{1}{N} \sum_{i=1}^N H_i \sin(i \cdot \delta), \; \frac{1}{N} \sum_{i=1}^N H_i \cos(i \cdot \delta) \right)$$
+$$
+\vec{\mu}_H = \left( \frac{1}{N} \sum_{i=1}^N H_i \sin(i \cdot \delta), \; \frac{1}{N} \sum_{i=1}^N H_i \cos(i \cdot \delta) \right)
+$$
 
 ### 4. Net Charge ($z$) at pH 7.4
 
-$$z = \sum_{i=1}^N q_i$$
+$$
+z = \sum_{i=1}^N q_i
+$$
 
 where $q_i = +1$ for Lys (K) and Arg (R); $q_i = -1$ for Asp (D) and Glu (E); and $0$ for all other amino acids.
 
 ### 5. Keller Discrimination Factor ($D$)
 Used to identify potential lipid-binding amphipathic helical regions ($D > 0.68$, Keller 2011):
 
-$$D = 0.944 \cdot \langle \mu_H \rangle + 0.33 \cdot z$$
+$$
+D = 0.944 \cdot \langle \mu_H \rangle + 0.33 \cdot z
+$$
 
 ---
 

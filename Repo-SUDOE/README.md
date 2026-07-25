@@ -52,15 +52,27 @@ Repo-SUDOE/
 Receptor B-factors (temperature factors in PDB structures) are repurposed to visually highlight residues involved in high-affinity ligand interactions:
 
 1. **Energy Ranking:** Docking poses from AutoDock Vina are sorted by binding energy ($\Delta G_{\text{bind}}$ in kcal/mol) in descending order:
-   $$\text{Rank}(k) \in \{1, 2, \dots, M\}$$
+
+   $$
+   \text{Rank}(k) \in \{1, 2, \dots, M\}
+   $$
+
    where Rank 1 corresponds to the pose with the highest affinity (most negative $\Delta G$).
 
 2. **Distance Cutoff ($\le d_{\text{cutoff}}$):** For each receptor atom $a \in \text{Receptor}$ and residue $R$:
-   $$d(a, l) = \| \mathbf{r}_a - \mathbf{r}_l \|_2, \quad \forall l \in \text{Ligand pose } k$$
+
+   $$
+   d(a, l) = \| \mathbf{r}_a - \mathbf{r}_l \|_2, \quad \forall l \in \text{Ligand pose } k
+   $$
+
    If $\min_{l} d(a, l) \le d_{\text{cutoff}}$ (default $5.0$ Å), the residue $R$ is assigned the rank of pose $k$.
 
 3. **Maximum Rank Attribution:**
-   $$B(R) = \max_{k \text{ contacting } R} \left( \text{Rank}(k) \right)$$
+
+   $$
+   B(R) = \max_{k \text{ contacting } R} \left( \text{Rank}(k) \right)
+   $$
+
    Residues contacting top-ranked poses receive high B-factor values, rendering as intense colors in VR color schemes (e.g. Spectrum or B-factor colormaps).
 
 ---
