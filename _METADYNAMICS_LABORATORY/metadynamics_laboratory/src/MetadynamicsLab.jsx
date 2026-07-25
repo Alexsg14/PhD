@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { MathBlock, MathInline } from './MathEq';
 import { 
   Play, Pause, RotateCcw, Activity, TrendingUp, Layers, Plus, Trash2, 
   Crosshair, BookOpen, Thermometer, Save, Upload, Hash, Calculator, 
@@ -1057,61 +1058,79 @@ const MetadynamicsLab = () => {
           </div>
 
         </div>
-      </div>
-
-      {/* Guide & Scientific Theory Modal */}
+        {/* Guide & Scientific Theory Modal */}
       {showGuideModal && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto relative">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto relative">
             <div className="flex justify-between items-center border-b border-slate-800 pb-3">
               <h3 className="text-lg font-bold text-white flex items-center gap-2">
                 <BookOpen size={20} className="text-cyan-400" />
-                Metadynamics Simulation Theory Guide
+                Metadynamics Simulation — Theory Guide
               </h3>
               <button onClick={() => setShowGuideModal(false)} className="text-slate-400 hover:text-white p-1 rounded-lg">
                 <X size={20} />
               </button>
             </div>
-            
-            <div className="text-xs text-slate-300 space-y-3 leading-relaxed">
+
+            <div className="text-sm text-slate-300 space-y-4 leading-relaxed">
               <p>
                 <strong>Metadynamics</strong> is a powerful enhanced sampling technique in computational physics and chemistry designed to accelerate rare events and reconstruct Free Energy Surfaces (FES) along chosen Collective Variables (CVs).
               </p>
-              
-              <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-1">
-                <h4 className="font-bold text-cyan-400">1. Overdamped Langevin (Brownian) Dynamics</h4>
-                <p>
-                  The particle position <code className="text-slate-200">x(t)</code> evolves under thermal fluctuations according to:
+
+              {/* Section 1 */}
+              <div className="bg-slate-950 p-4 rounded-xl border border-slate-700/80 space-y-2">
+                <h4 className="font-bold text-cyan-400 text-sm">1. Overdamped Langevin (Brownian) Dynamics</h4>
+                <p className="text-xs text-slate-400">
+                  The particle position <MathInline tex="x(t)" /> evolves under thermal fluctuations according to:
                 </p>
-                <div className="font-mono text-[11px] text-slate-300 bg-slate-900 p-2 rounded">
-                  dx = -∇ [V(x) + V_B(x, t)] dt + √(2 k_B T dt) · η(t)
+                <MathBlock tex="dx = -\nabla\bigl[V(x) + V_{\!B}(x,\,t)\bigr]\,dt + \sqrt{2\,k_{\!B}T\,dt}\;\eta(t)" />
+                <p className="text-xs text-slate-400">
+                  where <MathInline tex="\eta(t)\sim\mathcal{N}(0,1)" /> is standard Gaussian noise generated via the Box–Muller transform.
+                </p>
+              </div>
+
+              {/* Section 2 */}
+              <div className="bg-slate-950 p-4 rounded-xl border border-slate-700/80 space-y-3">
+                <h4 className="font-bold text-indigo-400 text-sm">2. Bias Potential — Gaussian Hill Deposition</h4>
+                <p className="text-xs text-slate-400">
+                  Gaussian hills of height <MathInline tex="W_0" /> and width <MathInline tex="\sigma" /> are deposited every <MathInline tex="\tau" /> steps at the current walker position:
+                </p>
+                <MathBlock tex="V_{\!B}(x,\,t) = \sum_{t'=\tau,2\tau,\ldots}^{t'<t} W(t')\,\exp\!\left(-\frac{(x - x(t'))^2}{2\sigma^2}\right)" />
+
+                <div className="space-y-2">
+                  <div className="rounded-lg border border-slate-700/60 bg-slate-900/60 p-3">
+                    <p className="text-xs font-bold text-slate-200 mb-1">Standard Metadynamics</p>
+                    <p className="text-xs text-slate-400 mb-1">Constant hill height <MathInline tex="W(t') = W_0" />. Free energy estimated as:</p>
+                    <MathBlock tex="F(x) = -V_{\!B}(x,\,t\to\infty)" />
+                  </div>
+                  <div className="rounded-lg border border-indigo-700/40 bg-indigo-950/20 p-3">
+                    <p className="text-xs font-bold text-indigo-300 mb-1">Well-Tempered Metadynamics (WT-MetaD)</p>
+                    <p className="text-xs text-slate-400 mb-1">Hill height decays as the bias fills the well:</p>
+                    <MathBlock tex="W(t') = W_0\,\exp\!\left(-\frac{V_{\!B}(x(t'),\,t')}{\Delta T}\right),\quad \Delta T = T\,(\gamma-1)" />
+                    <p className="text-xs text-slate-400 mb-1">where <MathInline tex="\gamma" /> is the bias factor. The FES is reconstructed as:</p>
+                    <MathBlock tex="F(x) = -\frac{\gamma}{\gamma - 1}\,V_{\!B}(x,\,t\to\infty)" />
+                  </div>
                 </div>
-                <p>where η(t) ~ N(0, 1) is standard Gaussian noise generated via the Box-Muller transform.</p>
               </div>
 
-              <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-1">
-                <h4 className="font-bold text-indigo-400">2. Standard vs. Well-Tempered Metadynamics (WT-MetaD)</h4>
-                <p>
-                  Gaussian hills of height <code className="text-slate-200">W₀</code> and width <code className="text-slate-200">σ</code> are deposited every <code className="text-slate-200">τ</code> steps.
+              {/* Section 3 */}
+              <div className="bg-slate-950 p-4 rounded-xl border border-slate-700/80 space-y-2">
+                <h4 className="font-bold text-purple-400 text-sm">3. Custom Mathematical Energy Surfaces</h4>
+                <p className="text-xs text-slate-400">
+                  You can define custom energy surfaces <MathInline tex="V(x)" /> using arbitrary algebraic expressions evaluated at runtime, for example:
                 </p>
-                <ul className="list-disc pl-4 space-y-1">
-                  <li><strong>Standard MetaD:</strong> Hill height is constant (<code className="text-slate-200">W = W₀</code>). FES is estimated as: <code className="text-slate-200">F(x) = -V_B(x)</code>.</li>
-                  <li><strong>Well-Tempered MetaD:</strong> Hill height decays exponentially as the energy well fills: <code className="text-slate-200">W(t) = W₀ exp(-V_B(x) / ΔT)</code> where <code className="text-slate-200">ΔT = T (γ - 1)</code>. FES is reconstructed as: <code className="text-slate-200">F(x) = - [γ / (γ - 1)] V_B(x)</code>.</li>
-                </ul>
-              </div>
-
-              <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-1">
-                <h4 className="font-bold text-purple-400">3. Custom Mathematical Functions</h4>
-                <p>
-                  You can define custom energy surfaces <code className="text-slate-200">V(x)</code> using arbitrary algebraic expressions (e.g. <code className="text-slate-200">0.5*(x^2-4)^2</code>, <code className="text-slate-200">3*cos(2*x)+0.15*x^4</code>).
-                </p>
+                <div className="font-mono text-[11px] text-emerald-300 bg-slate-900 p-2.5 rounded-lg border border-slate-700/60 space-y-1">
+                  <div>0.5*(x^2-4)^2</div>
+                  <div>3*cos(2*x) + 0.15*x^4</div>
+                  <div>sin(x)*exp(-0.1*x^2)</div>
+                </div>
               </div>
             </div>
 
             <div className="pt-3 border-t border-slate-800 flex justify-end">
-              <button 
+              <button
                 onClick={() => setShowGuideModal(false)}
-                className="py-2 px-4 bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold text-xs rounded-xl shadow-md"
+                className="py-2 px-5 bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold text-xs rounded-xl shadow-md"
               >
                 Close Guide
               </button>
@@ -1120,6 +1139,7 @@ const MetadynamicsLab = () => {
         </div>
       )}
 
+    </div>
     </div>
   );
 };

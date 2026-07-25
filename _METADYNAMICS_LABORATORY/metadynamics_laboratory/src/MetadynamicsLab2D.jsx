@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { MathBlock, MathInline } from './MathEq';
 import { 
   Play, Pause, RotateCcw, Activity, TrendingUp, Layers, Plus, Trash2, 
   Crosshair, BookOpen, Thermometer, Save, Upload, Hash, Calculator, 
@@ -998,43 +999,68 @@ const MetadynamicsLab2D = () => {
       {/* Guide Modal */}
       {showGuideModal && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto relative">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto relative">
             <div className="flex justify-between items-center border-b border-slate-800 pb-3">
               <h3 className="text-lg font-bold text-white flex items-center gap-2">
                 <BookOpen size={20} className="text-purple-400" />
-                2D Metadynamics Simulation Theory Guide
+                2D Metadynamics Simulation — Theory Guide
               </h3>
               <button onClick={() => setShowGuideModal(false)} className="text-slate-400 hover:text-white p-1 rounded-lg">
                 <X size={20} />
               </button>
             </div>
-            
-            <div className="text-xs text-slate-300 space-y-3 leading-relaxed">
+
+            <div className="text-sm text-slate-300 space-y-4 leading-relaxed">
               <p>
-                In <strong>2D Metadynamics</strong>, the walker particle diffuses over a two-dimensional energy landscape defined along two Collective Variables <code className="text-slate-200">(x, y)</code>.
+                In <strong>2D Metadynamics</strong>, the walker particle diffuses over a two-dimensional energy landscape defined along two Collective Variables <MathInline tex="(s_1, s_2)" />.
               </p>
 
-              <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-1">
-                <h4 className="font-bold text-purple-400">1. 2D Overdamped Langevin Dynamics</h4>
-                <div className="font-mono text-[11px] text-slate-300 bg-slate-900 p-2 rounded">
-                  dx = -∂[V(x,y) + V_B(x,y)]/∂x dt + √(2 k_B T dt) · η_x<br/>
-                  dy = -∂[V(x,y) + V_B(x,y)]/∂y dt + √(2 k_B T dt) · η_y
+              {/* Section 1: 2D Langevin */}
+              <div className="bg-slate-950 p-4 rounded-xl border border-slate-700/80 space-y-2">
+                <h4 className="font-bold text-purple-400 text-sm">1. 2D Overdamped Langevin Dynamics</h4>
+                <p className="text-xs text-slate-400">Each coordinate evolves independently under the gradient of the total potential:</p>
+                <MathBlock tex="\begin{aligned} dx &= -\frac{\partial}{\partial x}\bigl[V(x,y)+V_{\!B}(x,y,t)\bigr]\,dt + \sqrt{2k_{\!B}T\,dt}\;\eta_x \\\\ dy &= -\frac{\partial}{\partial y}\bigl[V(x,y)+V_{\!B}(x,y,t)\bigr]\,dt + \sqrt{2k_{\!B}T\,dt}\;\eta_y \end{aligned}" />
+                <p className="text-xs text-slate-400">where <MathInline tex="\eta_x, \eta_y \sim \mathcal{N}(0,1)" /> are independent Gaussian noise terms.</p>
+              </div>
+
+              {/* Section 2: 2D Gaussian bias */}
+              <div className="bg-slate-950 p-4 rounded-xl border border-slate-700/80 space-y-3">
+                <h4 className="font-bold text-cyan-400 text-sm">2. 2D Gaussian Bias Deposition</h4>
+                <p className="text-xs text-slate-400">
+                  2D Gaussian hills are deposited every <MathInline tex="\tau" /> steps at the current walker location <MathInline tex="(x(t'),\,y(t'))" />:
+                </p>
+                <MathBlock tex="V_{\!B}(x,y,t)=\sum_{t'<t}W(t')\,\exp\!\left(-\frac{(x-x(t'))^2+(y-y(t'))^2}{2\sigma^2}\right)" />
+
+                <div className="space-y-2">
+                  <div className="rounded-lg border border-slate-700/60 bg-slate-900/60 p-3">
+                    <p className="text-xs font-bold text-slate-200 mb-1">Standard Metadynamics</p>
+                    <p className="text-xs text-slate-400 mb-1">Constant hill height <MathInline tex="W(t')=W_0" />:</p>
+                    <MathBlock tex="F(x,y) = -V_{\!B}(x,y,\,t\to\infty)" />
+                  </div>
+                  <div className="rounded-lg border border-indigo-700/40 bg-indigo-950/20 p-3">
+                    <p className="text-xs font-bold text-indigo-300 mb-1">Well-Tempered Metadynamics (WT-MetaD)</p>
+                    <p className="text-xs text-slate-400 mb-1">Hill height rescaled by accumulated bias:</p>
+                    <MathBlock tex="W(t')=W_0\exp\!\left(-\frac{V_{\!B}(x(t'),y(t'),t')}{\Delta T}\right),\quad \Delta T=T(\gamma-1)" />
+                    <p className="text-xs text-slate-400 mb-1">Free energy surface reconstruction:</p>
+                    <MathBlock tex="F(x,y)=-\frac{\gamma}{\gamma-1}\,V_{\!B}(x,y,\,t\to\infty)" />
+                  </div>
                 </div>
               </div>
 
-              <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-1">
-                <h4 className="font-bold text-cyan-400">2. 2D Gaussian Bias Deposition</h4>
-                <p>2D Gaussian hills are deposited every <code className="text-slate-200">τ</code> steps at the current walker location <code className="text-slate-200">(x(t), y(t))</code>.</p>
-              </div>
-
-              <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-1">
-                <h4 className="font-bold text-emerald-400">3. Custom 2D Math Functions V(x, y)</h4>
-                <p>Define 2D potential functions combining both variables <code className="text-slate-200">x</code> and <code className="text-slate-200">y</code> (e.g. <code className="text-slate-200">0.2*(x^2-4)^2 + 0.2*(y^2-4)^2</code> or <code className="text-slate-200">2*(cos(x)+cos(y))+0.1*(x^4+y^4)</code>).</p>
+              {/* Section 3: Custom functions */}
+              <div className="bg-slate-950 p-4 rounded-xl border border-slate-700/80 space-y-2">
+                <h4 className="font-bold text-emerald-400 text-sm">3. Custom 2D Energy Surfaces <MathInline tex="V(x,y)" /></h4>
+                <p className="text-xs text-slate-400">Define 2D potential functions combining both variables, for example:</p>
+                <div className="font-mono text-[11px] text-emerald-300 bg-slate-900 p-2.5 rounded-lg border border-slate-700/60 space-y-1">
+                  <div>0.2*(x^2-4)^2 + 0.2*(y^2-4)^2</div>
+                  <div>2*(cos(x)+cos(y)) + 0.1*(x^4+y^4)</div>
+                  <div>sin(x)*cos(y) + 0.05*(x^2+y^2)</div>
+                </div>
               </div>
             </div>
 
             <div className="pt-3 border-t border-slate-800 flex justify-end">
-              <button onClick={() => setShowGuideModal(false)} className="py-2 px-4 bg-gradient-to-r from-purple-500 to-indigo-600 text-white font-bold text-xs rounded-xl shadow-md">
+              <button onClick={() => setShowGuideModal(false)} className="py-2 px-5 bg-gradient-to-r from-purple-500 to-indigo-600 text-white font-bold text-xs rounded-xl shadow-md">
                 Close Guide
               </button>
             </div>
