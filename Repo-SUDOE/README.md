@@ -5,7 +5,7 @@
 [![ProLIF](https://img.shields.io/badge/ProLIF-0.4+-orange.svg)](https://prolif.readthedocs.io/)
 [![OpenBabel](https://img.shields.io/badge/OpenBabel-3.1+-blue.svg)](http://openbabel.org/)
 
-Tools for Virtual Reality (VR) 3D molecular visualization, automated GROMACS trajectory processing, protein-ligand interaction fingerprinting, and mapping AutoDock Vina binding energy rankings onto receptor structural B-factors for hot-spot detection in VR (Meta Quest / NanoVer).
+Tools for Virtual Reality (VR) 3D molecular visualization, automated GROMACS trajectory processing, protein-ligand interaction fingerprinting, and mapping AutoDock Vina binding energy rankings onto receptor structural B-factors for hot-spot detection in VR.
 
 ---
 
@@ -19,13 +19,13 @@ Tools for Virtual Reality (VR) 3D molecular visualization, automated GROMACS tra
   - [2. Automated GROMACS & B-Factor Pipeline (`VR_BFACTOR/bfactor.sh`)](#2-automated-gromacs--b-factor-pipeline-vr_bfactorbfactorsh)
   - [3. ProLIF Interaction Fingerprinter (`VR_BFACTOR/aa_interaction_flags.py`)](#3-prolif-interaction-fingerprinter-vr_bfactoraa_interaction_flagspy)
 - [Dependencies & Installation](#-dependencies--installation)
-- [VR Integration Protocols](#-vr-integration-protocols)
+- [Visualization Protocol](#-visualization-protocol)
 
 ---
 
 ## 🎯 Features & Overview
 
-- **B-Factor Energy Mapping:** Translates AutoDock Vina binding affinities (`REMARK VINA RESULT`) into receptor residue B-factors, allowing color-coded 3D structural heatmaps of binding hot spots in VR software (NanoVer, VMD, PyMOL).
+- **B-Factor Energy Mapping:** Translates AutoDock Vina binding affinities (`REMARK VINA RESULT`) into receptor residue B-factors, allowing color-coded 3D structural heatmaps of binding hot spots in VR and molecular visualization tools (VMD, PyMOL).
 - **Automated GROMACS Trajectory Assembly:** Concatenates multi-stage free energy perturbation (FEP) or equilibration trajectories (`min`, `eq`, `prod`) and centers system coordinates (`pbc mol`).
 - **ProLIF Interaction Fingerprints:** Computes residue-level non-covalent interactions (hydrogen bonds, hydrophobic contacts, $\pi$-stacking, ionic interactions) across docking poses.
 - **VR Asset Preparation:** Automated conversion of `.gro`, `.xtc`, `.pdbqt`, and `.sdf` files into VR-ready `.pdb` and `.xtc` outputs.
@@ -42,8 +42,6 @@ Repo-SUDOE/
 │   ├── ligand_energy_attribution.py          # Core B-factor calculation module for pipeline
 │   ├── aa_interaction_flags.py               # ProLIF protein-ligand interaction calculator
 │   └── aa_interaction_dict.py                # Interaction type definitions & dictionary mapping
-├── nanover_openmm_guide.md                   # Complete guide for NanoVer + OpenMM PC-VR
-├── nanover_openmm_interactive.ipynb          # Jupyter notebook for interactive VR sessions
 └── README.md                                 # Module documentation
 ```
 
@@ -151,7 +149,9 @@ pip install prolif
 
 ---
 
-## 🥽 VR Integration Protocols
+## 🥽 Visualization Protocol
 
-1. **NanoVer iMD & Meta Quest:** Refer to [`nanover_openmm_guide.md`](./nanover_openmm_guide.md) and [`nanover_openmm_interactive.ipynb`](./nanover_openmm_interactive.ipynb) for instructions on serving simulations over NanoVer OmniRunner to Meta Quest headsets.
-2. **VMD Color Mapping:** Load `receptor.pdb` in VMD and set **Coloring Method $\rightarrow$ Beta** to visualize binding energy hot spots.
+To view the generated hot-spot B-factor heatmaps in molecular visualization software (such as VMD or PyMOL):
+
+1. **VMD:** Load `receptor.pdb` and set **Graphics $\rightarrow$ Representations $\rightarrow$ Coloring Method $\rightarrow$ Beta**.
+2. **PyMOL:** Load `receptor.pdb` and run `spectrum b, blue_white_red, minimum=1, maximum=80`.

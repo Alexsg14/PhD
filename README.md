@@ -24,10 +24,9 @@ PhD/
 ├── Proteomics/               # Proteomics data processing & severity matrix heatmaps
 │   ├── Data_analysis/        # Dataset processing modules
 │   └── Severity_matrix.py    # Heatmap generator for patient severity matrix
-├── Repo-SUDOE/               # VR B-factor tools & NanoVer / OpenMM integration
-│   ├── VR_BFACTOR/           # Energy attribution to receptor B-factors from AutoDock Vina
-│   ├── nanover_openmm_guide.md        # Detailed guide for NanoVer + OpenMM
-│   └── nanover_openmm_interactive.ipynb # Jupyter notebook for interactive VR sessions
+├── Repo-SUDOE/               # VR B-factor energy mapping & interaction tools
+│   ├── VR_BFACTOR/           # Energy attribution to receptor B-factors & ProLIF interaction tools
+│   └── README.md             # Module documentation
 ├── _METADYNAMICS_LABORATORY/ # Interactive 1D/2D Metadynamics & PLUMED HILLS Laboratory
 │   ├── metadynamics_laboratory/      # React 19 + Vite + Tailwind web application
 │   ├── metadynamics_laboratory.sh   # Automated project generator script
@@ -167,7 +166,7 @@ conda install -c irl nanover-imd
    conda activate nanover
    python -m jupyterlab
    ```
-3. Open the notebook [`Repo-SUDOE/nanover_openmm_interactive.ipynb`](Repo-SUDOE/nanover_openmm_interactive.ipynb) in JupyterLab.
+3. Open JupyterLab in your simulation directory.
 4. Execute the simulation setup cells to spin up an `OmniRunner` server instance.
 5. In the Quest VR headset, select **Discover** $\rightarrow$ **Refresh** $\rightarrow$ connect to your PC's IP/port.
 
@@ -195,9 +194,9 @@ Located in [`Proteomics/`](./Proteomics/):
 
 ### SUDOE VR B-Factor Pipeline
 Located in [`Repo-SUDOE/`](./Repo-SUDOE/):
-- **`VR_BFACTOR/ligand_energy_attribution_bfactor.py`**: Maps AutoDock Vina binding energy ranks onto receptor B-factor fields in PDB files for 3D visual analysis in VR.
-- **`split_and_convert_pdbqt_to_pdb.py`**: Converts multi-model PDBQT docking outputs into individual PDB models using Open Babel.
-- **`nanover_openmm_guide.md`**: Guide for setting up OpenMM molecular mechanics simulations inside NanoVer.
+- **`VR_BFACTOR/ligand_energy_attribution_bfactor.py`**: Standalone processor mapping AutoDock Vina binding energy ranks onto receptor B-factor fields in PDB files for 3D visual analysis in VR.
+- **`VR_BFACTOR/bfactor.sh`**: Automated GROMACS trajectory assembly and B-factor mapping pipeline script.
+- **`VR_BFACTOR/aa_interaction_flags.py`**: ProLIF interaction fingerprint calculator exporting residue-level contact metadata. See [`Repo-SUDOE/README.md`](./Repo-SUDOE/README.md) for full module documentation.
 
 ### Metadynamics Laboratory
 Located in [`_METADYNAMICS_LABORATORY/`](./_METADYNAMICS_LABORATORY/):
