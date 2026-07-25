@@ -113,8 +113,14 @@ python Data_analysis/run_volcano.py
 
 Statistical validation tools for checking Multi-Linear Regression (MLR) normalization effects on supernatant (`_S`) datasets:
 
-- **`fc_S_normalizada_vs_sinnormalizar.py`**: Computes normalization shifts between MLR-normalized and unnormalized peak areas:
-  $$\Delta \log_2(\text{FC}) = \log_2(\text{FC}_{\text{norm}}) - \log_2(\text{FC}_{\text{sin\_norm}})$$
+- **`fc_S_normalizada_vs_sinnormalizar.py`**: Computes Fold Change for normalized vs. unnormalized data:
+
+  $$\text{FC}_{\text{norm}} = \frac{\text{mean}_1^{\text{norm}}}{\text{mean}_0^{\text{norm}}}, \quad \text{FC}_{\text{unnorm}} = \frac{\text{mean}_1^{\text{unnorm}}}{\text{mean}_0^{\text{unnorm}}}$$
+
+  Evaluating log fold change shifts:
+
+  $$\Delta = \log_2(\text{FC}_{\text{norm}}) - \log_2(\text{FC}_{\text{unnorm}})$$
+
 - **`verificacion_MLR.py`**: Analyzes per-patient MLR scaling factors, pre-normalization total ion signal distributions, and linear regression fits.
 
 **Usage:**
