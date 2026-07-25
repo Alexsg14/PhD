@@ -12,6 +12,10 @@ This repository consolidates computational research tools, simulation analysis p
 
 ```
 PhD/
+├── Helix_wheel/              # Helical wheel generator & hydrophobic dipole moment calculator
+│   ├── heliquest.py          # Primary wheel renderer & vector plotter
+│   ├── hydrophobic_moment.py # Hydrophobicity scales & dipole calculations
+│   └── README.md             # Module documentation
 ├── Molecular Dynamics/       # MD analysis, PMF calculations, block averaging, VMD scripts
 │   ├── Analysis/             # Trajectory treatment & contact/Z-position analysis
 │   ├── Spin_scripts/         # Block average calculations & 2D PMF plotting
@@ -55,6 +59,7 @@ PhD/
   - [Running NanoVer PC-VR](#running-nanover-pc-vr)
   - [Running Standalone APK with JupyterLab](#running-standalone-apk-with-jupyterlab)
 - [Modules Overview](#-modules-overview)
+  - [Helical Wheel & Hydrophobic Moment Generator](#helical-wheel--hydrophobic-moment-generator)
   - [Molecular Dynamics Analysis](#molecular-dynamics-analysis)
   - [Proteomics Processing](#proteomics-processing)
   - [SUDOE VR B-Factor Pipeline](#sudoe-vr-b-factor-pipeline)
@@ -169,6 +174,12 @@ conda install -c irl nanover-imd
 ---
 
 ## 🔬 Modules Overview
+
+### Helical Wheel & Hydrophobic Moment Generator
+Located in [`Helix_wheel/`](./Helix_wheel/):
+- **`heliquest.py`**: Programmatic generation of 2D helical wheel diagrams (HeliQuest style) with residue chemical color coding, hydrophobic dipole moment vector ($\vec{\mu}_H$) direction rendering, and high-resolution PNG export.
+- **`hydrophobic_moment.py`**: Mathematical module defining amino acid hydrophobicity scales (Fauchère-Pliska, Eisenberg), sequence charge calculation, Keller discrimination factor ($D$), and amino acid composition analysis.
+- Accessible as both command-line scripts and as a Python package (`import Helix_wheel`). See [`Helix_wheel/README.md`](./Helix_wheel/README.md) for full module documentation.
 
 ### Molecular Dynamics Analysis
 Located in [`Molecular Dynamics/`](./Molecular%20Dynamics/):

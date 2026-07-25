@@ -1,0 +1,2 @@
+Name,Sequence,Window,Window Size,Sub-Sequence,Charge,Mean Hydrophobicity,Mean Hydrophobic Moment,Discrimination Factor,No. Polar AA,No. Apolar AA,No. Charged AA,No. Aromatic AA
+Unnamed,KGRGKQGGKVRAKAKTRSS,1,19,KGRGKQGGKVRAKAKTRSS,8,-0.3252631578947368,0.08332386173618007,2.718657725478954,16,3,8,0
