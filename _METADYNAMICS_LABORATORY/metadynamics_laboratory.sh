@@ -1130,7 +1130,8 @@ import {
   RefreshCw,
   Image as ImageIcon,
   ZoomIn,
-  X
+  X,
+  ShieldCheck
 } from "lucide-react";
 import {
   LineChart,
@@ -1194,7 +1195,7 @@ class HillsErrorBoundary extends React.Component {
   }
 }
 
-// --- Safe Array Min/Max Helper ---
+// --- Safe Array Min/Max Helper (No Call Stack Overflow) ---
 function getMinMax(arr, defaultVal = 0) {
   if (!arr || arr.length === 0) return { min: defaultVal, max: defaultVal };
   let min = Infinity;
@@ -1256,7 +1257,7 @@ function getHeatmapColor(val, minVal, maxVal, palette = "Viridis") {
   }
 }
 
-// --- 1D PMF Plot Exporter matching Matplotlib PMF_subplots layout ---
+// --- 1D PMF Plot Exporter matching Matplotlib plot_single_fes_dat layout (No Title, No Badge) ---
 function export1DPlot({
   gridPoints,
   cvName,
@@ -1271,7 +1272,7 @@ function export1DPlot({
   const height = 750;
   const padLeft = 110;
   const padRight = 60;
-  const padTop = 115;
+  const padTop = 90;
   const padBottom = 85;
 
   const plotW = width - padLeft - padRight;
@@ -1280,8 +1281,7 @@ function export1DPlot({
   const sVals = gridPoints.map((p) => p.s);
   const fesVals = gridPoints.map((p) => p.fes);
 
-  const minS = Math.min(...sVals);
-  const maxS = Math.max(...sVals);
+  const { min: minS, max: maxS } = getMinMax(sVals, 0);
   const rangeS = maxS - minS || 1;
 
   // 1. Minimum Position & Minimum Energy strictly inside current ROI grid points
@@ -1308,8 +1308,7 @@ function export1DPlot({
   const platYVal = plateauPts.length > 0 ? plateauSumY / plateauPts.length : fesVals[fesVals.length - 1];
   const platXVal = plateauPts.length > 0 ? plateauSumX / plateauPts.length : maxS;
 
-  const minY = Math.min(...fesVals);
-  const maxY = Math.max(...fesVals);
+  const { min: minY, max: maxY } = getMinMax(fesVals, 0);
   const rangeY = maxY - minY || 1;
 
   // PMF Curve Points
@@ -1347,14 +1346,13 @@ function export1DPlot({
   const minPx = padLeft + ((minS_val - minS) / rangeS) * plotW;
   const minPy = padTop + plotH - ((minFES - minY) / rangeY) * plotH;
   const bulkPx = padLeft + ((platXVal - minS) / rangeS) * plotW;
-  const plateauPy = padTop + plotH - ((platYVal - minY) / rangeY) * plotH;
 
   const bgColorAttr = transparent ? "none" : "#ffffff";
   const textColor = "#1e293b";
   const axisColor = "#334155";
   const gridColor = "#e2e8f0";
 
-  // Exact Colors matching Matplotlib PMF_subplots
+  // Exact Colors matching Matplotlib PMF_subplots / plot_single_fes_dat
   const COLOR_CURVE = "#08306A";     // Dark Navy Blue
   const COLOR_MIN_X = "#860203";     // Dark Red
   const COLOR_PLATEAU_X = "#2B8092"; // Teal
@@ -1392,7 +1390,7 @@ function export1DPlot({
     `;
   }
 
-  // Build SVG XML matching Matplotlib plot
+  // Build SVG XML matching Matplotlib plot (No Title, No Badge)
   const svgString = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">
     <style>
       .bg { fill: ${bgColorAttr}; }
@@ -1435,23 +1433,14 @@ function export1DPlot({
     <text x="${bulkPx}" y="${padTop + 48}" fill="${COLOR_PLATEAU_X}" class="annot-text" text-anchor="middle">${platXVal.toFixed(2)}</text>
 
     <!-- Olive Plateau Energy Text floating above dotted line -->
-    <text x="${padLeft + 35}" y="${plateauPy - 10}" fill="${COLOR_PLATEAU_Y}" class="annot-text" text-anchor="start">${Math.abs(minY).toFixed(2)}</text>
+    <text x="${padLeft + 35}" y="${minPy - 10}" fill="${COLOR_PLATEAU_Y}" class="annot-text" text-anchor="start">${Math.abs(minFES).toFixed(2)}</text>
 
     <!-- Axis Titles -->
     <text x="${padLeft + plotW / 2}" y="${height - 20}" class="axis-label" text-anchor="middle">${cvName || "D.z"} (nm)</text>
     <text x="32" y="${padTop + plotH / 2}" class="axis-label" text-anchor="middle" transform="rotate(-90 32 ${padTop + plotH / 2})">Free Energy (${energyUnits})</text>
 
-    <!-- Title Centered at Top -->
-    <text x="${padLeft + plotW / 2}" y="${padTop - 14}" fill="#1e293b" font-family="Inter, sans-serif" font-size="24" font-weight="bold" text-anchor="middle">${cvName || "COV"}</text>
-
-    <!-- Upper Right Badge Box (PAR-I) -->
-    <g transform="translate(${padLeft + plotW - 95}, ${padTop + 15})">
-      <rect x="0" y="0" width="80" height="32" rx="6" fill="white" stroke="#1e3a8a" stroke-width="1.2" />
-      <text x="40" y="21" fill="#1e3a8a" font-family="Inter, sans-serif" font-size="15" font-weight="bold" text-anchor="middle">PAR-I</text>
-    </g>
-
-    <!-- Top Multicolumn Legend Box -->
-    <g transform="translate(${padLeft + plotW / 2 - 340}, ${padTop - 60})">
+    <!-- Top Multicolumn Legend Box (No Title, No Badge) -->
+    <g transform="translate(${padLeft + plotW / 2 - 340}, ${padTop - 50})">
       <rect x="0" y="0" width="680" height="34" rx="6" fill="white" stroke="#cbd5e1" stroke-width="1.2" />
 
       <!-- Item 1: PMF -->
@@ -1514,7 +1503,7 @@ function export1DPlot({
   }
 }
 
-// --- Inline Web Worker Creator supporting Ultra-Large Files (up to 1 GB+) via Chunking ---
+// --- Inline Web Worker Creator supporting Ultra-Large Files (up to 1 GB+) & Fast Incremental Engine ---
 function createHillsWorker() {
   const code = `
   self.onmessage = async function(e) {
@@ -1532,7 +1521,6 @@ function createHillsWorker() {
     const rawRows = [];
 
     if (file) {
-      // Chunked streaming read of large files (up to 1 GB+) without OOM
       const chunkSize = 15 * 1024 * 1024; // 15 MB chunks
       let offset = 0;
       let leftover = "";
@@ -1687,9 +1675,9 @@ function createHillsWorker() {
     const wtFactor = isWtScaling && gamma > 1 ? gamma / (gamma - 1) : 1.0;
     const unitScale = energyUnits === "kcal/mol" ? 0.239006 : 1.0;
 
-    const numFrames = 100;
+    const numFrames = 101;
     const timelineGrids = new Array(numFrames);
-    const chunkHillsCount = Math.ceil(parsedHills.length / numFrames);
+    const chunkHillsCount = Math.ceil(parsedHills.length / 100);
 
     if (!is2D) {
       // --- 1D FES CALCULATION ENGINE ---
@@ -1710,9 +1698,29 @@ function createHillsWorker() {
       const stepSize = (gridMax - gridMin) / (numBins - 1);
       const accumulatedV = new Float64Array(numBins);
 
-      for (let f = 0; f < numFrames; f++) {
-        const startH = f * chunkHillsCount;
-        const endH = Math.min(parsedHills.length, (f + 1) * chunkHillsCount);
+      // Frame 0 (0% time): Completely flat potential V=0 at t=0
+      const frame0Grid = new Array(numBins);
+      for (let i = 0; i < numBins; i++) {
+        const s = gridMin + i * stepSize;
+        frame0Grid[i] = {
+          s: parseFloat(s.toFixed(4)),
+          rawFes: 0,
+          zeroFes: 0,
+          vBiasRaw: 0
+        };
+      }
+      timelineGrids[0] = {
+        frameIndex: 0,
+        pct: 0,
+        sampleTime: startTime,
+        activeHillsCount: 0,
+        gridPoints: frame0Grid
+      };
+
+      for (let f = 1; f <= 100; f++) {
+        const startH = (f - 1) * chunkHillsCount;
+        const endH = Math.min(parsedHills.length, f * chunkHillsCount);
+        const sampleTime = parsedHills[Math.min(parsedHills.length - 1, endH - 1)]?.time || 0;
 
         for (let h = startH; h < endH; h++) {
           const hill = parsedHills[h];
@@ -1749,15 +1757,15 @@ function createHillsWorker() {
         }
 
         timelineGrids[f] = {
-          frameIndex: f + 1,
-          pct: Math.min(100, Math.round(((f + 1) / numFrames) * 100)),
-          sampleTime: parsedHills[Math.min(parsedHills.length - 1, endH - 1)]?.time || 0,
+          frameIndex: f,
+          pct: f,
+          sampleTime,
           activeHillsCount: endH,
           gridPoints: frameGrid
         };
 
         if (f % 10 === 0) {
-          self.postMessage({ progress: 50 + Math.floor((f / numFrames) * 50) });
+          self.postMessage({ progress: 50 + Math.floor((f / 100) * 50) });
         }
       }
     } else {
@@ -1790,12 +1798,28 @@ function createHillsWorker() {
 
       const stepX = (gridMax1 - gridMin1) / (numBinsX - 1);
       const stepY = (gridMax2 - gridMin2) / (numBinsY - 1);
-
       const accumulatedV2D = new Float64Array(numBinsX * numBinsY);
 
-      for (let f = 0; f < numFrames; f++) {
-        const startH = f * chunkHillsCount;
-        const endH = Math.min(parsedHills.length, (f + 1) * chunkHillsCount);
+      // Frame 0 (0% time): Completely flat potential
+      const grid2DFlat0 = new Float64Array(numBinsX * numBinsY * 2);
+      timelineGrids[0] = {
+        frameIndex: 0,
+        pct: 0,
+        sampleTime: startTime,
+        activeHillsCount: 0,
+        grid2DFlat: grid2DFlat0,
+        numBinsX,
+        numBinsY,
+        gridMin1,
+        gridMax1,
+        gridMin2,
+        gridMax2
+      };
+
+      for (let f = 1; f <= 100; f++) {
+        const startH = (f - 1) * chunkHillsCount;
+        const endH = Math.min(parsedHills.length, f * chunkHillsCount);
+        const sampleTime = parsedHills[Math.min(parsedHills.length - 1, endH - 1)]?.time || 0;
 
         for (let h = startH; h < endH; h++) {
           const hill = parsedHills[h];
@@ -1840,9 +1864,9 @@ function createHillsWorker() {
         }
 
         timelineGrids[f] = {
-          frameIndex: f + 1,
-          pct: Math.min(100, Math.round(((f + 1) / numFrames) * 100)),
-          sampleTime: parsedHills[Math.min(parsedHills.length - 1, endH - 1)]?.time || 0,
+          frameIndex: f,
+          pct: f,
+          sampleTime,
           activeHillsCount: endH,
           grid2DFlat,
           numBinsX,
@@ -1854,7 +1878,7 @@ function createHillsWorker() {
         };
 
         if (f % 10 === 0) {
-          self.postMessage({ progress: 50 + Math.floor((f / numFrames) * 50) });
+          self.postMessage({ progress: 50 + Math.floor((f / 100) * 50) });
         }
       }
     }
@@ -1991,7 +2015,7 @@ function Canvas2DHeatmap({
       ctx.strokeStyle = "#475569";
       ctx.beginPath();
       ctx.moveTo(padLeft - 4, py);
-      ctx.lineTo(padLeft, py);
+      ctx.lineTo(padLeft);
       ctx.stroke();
 
       ctx.fillStyle = "#94a3b8";
@@ -2139,14 +2163,14 @@ function Canvas2DHeatmap({
         )}
       </div>
 
-      <div className="relative border border-slate-800 rounded-2xl overflow-hidden shadow-2xl bg-slate-950 p-2">
+      <div className="relative border border-slate-800 rounded-2xl overflow-hidden shadow-2xl bg-slate-950 p-2 w-full flex justify-center">
         <canvas
           ref={canvasRef}
-          width={640}
-          height={440}
+          width={800}
+          height={480}
           onMouseMove={handleMouseMove}
           onMouseLeave={() => setHoverInfo(null)}
-          className="cursor-crosshair block rounded-xl"
+          className="cursor-crosshair block rounded-xl max-w-full"
         />
 
         {hoverInfo && (
@@ -2162,7 +2186,20 @@ function Canvas2DHeatmap({
   );
 }
 
-function HillsVisualizerInner() {
+function HillsVisualizerInner({
+  numBins = 300,
+  customBiasFactor = "",
+  gridMinUser = "",
+  gridMaxUser = "",
+  energyUnits = "kJ/mol",
+  energyRefMode = "plateauZero",
+  isWtScaling = true,
+  setGridMinUser,
+  setGridMaxUser,
+  setInputGridMin,
+  setInputGridMax,
+  onMetadataLoaded
+}) {
   const [hillsData, setHillsData] = useState(null);
   const [fileName, setFileName] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
@@ -2174,34 +2211,13 @@ function HillsVisualizerInner() {
   const [activeTab, setActiveTab] = useState("fes");
   const [colorPalette, setColorPalette] = useState("Viridis");
 
-  // Export Modal State
-  const [showExportModal, setShowExportModal] = useState(false);
-  const [exportFormat, setExportFormat] = useState("png");
-  const [exportTransparent, setExportTransparent] = useState(false);
-
   // Interactive Mouse Box Zoom State
   const [refAreaLeft, setRefAreaLeft] = useState("");
   const [refAreaRight, setRefAreaRight] = useState("");
 
-  // Applied parameters used for computation
-  const [numBins, setNumBins] = useState(300);
-  const [customBiasFactor, setCustomBiasFactor] = useState("");
-  const [gridMinUser, setGridMinUser] = useState("");
-  const [gridMaxUser, setGridMaxUser] = useState("");
-
-  // Local draft inputs for user editing
-  const [inputNumBins, setInputNumBins] = useState("300");
-  const [inputCustomBias, setInputCustomBias] = useState("");
-  const [inputGridMin, setInputGridMin] = useState("");
-  const [inputGridMax, setInputGridMax] = useState("");
-
   const [timeStepProgress, setTimeStepProgress] = useState(100);
   const [isPlayingTime, setIsPlayingTime] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(60);
-
-  const [energyUnits, setEnergyUnits] = useState("kJ/mol");
-  const [energyRefMode, setEnergyRefMode] = useState("plateauZero"); // "raw" | "minZero" | "plateauZero"
-  const [isWtScaling, setIsWtScaling] = useState(true);
 
   const fileInputRef = useRef(null);
   const activeFileRef = useRef(null);
@@ -2232,14 +2248,21 @@ function HillsVisualizerInner() {
         const minStr = x1.toFixed(3);
         const maxStr = x2.toFixed(3);
 
-        setGridMinUser(minStr);
-        setGridMaxUser(maxStr);
-        setInputGridMin(minStr);
-        setInputGridMax(maxStr);
+        if (setGridMinUser) setGridMinUser(minStr);
+        if (setGridMaxUser) setGridMaxUser(maxStr);
+        if (setInputGridMin) setInputGridMin(minStr);
+        if (setInputGridMax) setInputGridMax(maxStr);
       }
     }
     setRefAreaLeft("");
     setRefAreaRight("");
+  };
+
+  const handleResetGridBounds = () => {
+    if (setInputGridMin) setInputGridMin("");
+    if (setInputGridMax) setInputGridMax("");
+    if (setGridMinUser) setGridMinUser("");
+    if (setGridMaxUser) setGridMaxUser("");
   };
 
   // Drag and Drop Handlers
@@ -2274,7 +2297,7 @@ function HillsVisualizerInner() {
       timer = setInterval(() => {
         setTimeStepProgress((prev) => {
           if (prev >= 100) {
-            return 1;
+            return 0;
           }
           return prev + 1;
         });
@@ -2311,6 +2334,7 @@ function HillsVisualizerInner() {
         setIsLoading(false);
         setTimeStepProgress(100);
         setIsPlayingTime(false);
+        if (onMetadataLoaded) onMetadataLoaded(e.data.result);
         worker.terminate();
       }
     };
@@ -2352,24 +2376,9 @@ function HillsVisualizerInner() {
     e.target.value = null;
   };
 
-  const handleApplyGridParams = (e) => {
-    if (e) e.preventDefault();
-    setNumBins(parseInt(inputNumBins) || 300);
-    setCustomBiasFactor(inputCustomBias);
-    setGridMinUser(inputGridMin);
-    setGridMaxUser(inputGridMax);
-  };
-
-  const handleResetGridBounds = () => {
-    setInputGridMin("");
-    setInputGridMax("");
-    setGridMinUser("");
-    setGridMaxUser("");
-  };
-
   const currentFrameData = useMemo(() => {
     if (!hillsData || !hillsData.timelineGrids || hillsData.timelineGrids.length === 0) return null;
-    const idx = Math.max(0, Math.min(99, timeStepProgress - 1));
+    const idx = Math.max(0, Math.min(100, timeStepProgress));
     const rawFrame = hillsData.timelineGrids[idx];
     if (!rawFrame) return null;
 
@@ -2509,6 +2518,18 @@ function HillsVisualizerInner() {
     };
   }, [hillsData]);
 
+  const handleExportPNG = () => {
+    if (!currentFrameData || !hillsData || !currentFrameData.gridPoints) return;
+    export1DPlot({
+      gridPoints: currentFrameData.gridPoints,
+      cvName: hillsData.cvNames[0] || "D.z",
+      energyUnits,
+      energyRefMode,
+      format: "png",
+      transparent: false
+    });
+  };
+
   const handleExportFES = () => {
     if (!currentFrameData || !hillsData) return;
 
@@ -2520,7 +2541,6 @@ function HillsVisualizerInner() {
         `#! SET nbins_${hillsData.cvNames[0] || "CV1"} ${numBins}`,
         `#! SET periodic_${hillsData.cvNames[0] || "CV1"} false`,
         `#! Reconstructed with Metadynamics Laboratory HILLS Inspector`,
-        `#! BiasFactor: ${hillsData.effectiveBiasFactor}`,
         `#! Energy Unit: ${energyUnits}`,
         `#! Energy Reference Mode: ${energyRefMode}`
       ].join("\n");
@@ -2583,112 +2603,8 @@ function HillsVisualizerInner() {
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className="flex flex-col w-full max-w-7xl mx-auto space-y-6 relative min-h-[75vh]"
+      className="flex flex-col w-full relative min-h-[75vh] space-y-6"
     >
-      {/* Export Plot Options Modal (Temporarily Deactivated) */}
-      {false && showExportModal && currentFrameData?.gridPoints && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl max-w-md w-full space-y-5 relative">
-            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
-              <h3 className="text-base font-bold text-white flex items-center gap-2">
-                <ImageIcon size={18} className="text-cyan-400" />
-                Download 1D PMF Plot
-              </h3>
-              <button
-                onClick={() => setShowExportModal(false)}
-                className="text-slate-400 hover:text-white font-bold text-sm"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="space-y-4 text-xs">
-              {(gridMinUser || gridMaxUser) && (
-                <div className="bg-cyan-950/80 border border-cyan-700/60 p-2.5 rounded-xl text-cyan-300 font-mono flex items-center justify-between text-[11px]">
-                  <span>Active Zoom ROI: [{gridMinUser || "Auto"}, {gridMaxUser || "Auto"}]</span>
-                  <span className="text-cyan-400 font-bold">ROI Filter Enabled</span>
-                </div>
-              )}
-
-              <div>
-                <label className="block text-slate-300 font-semibold mb-1.5">File Format:</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setExportFormat("png")}
-                    className={`py-2 px-3 rounded-xl font-bold border transition-all ${
-                      exportFormat === "png"
-                        ? "bg-cyan-500 text-slate-950 border-cyan-400"
-                        : "bg-slate-950 text-slate-400 border-slate-800 hover:text-white"
-                    }`}
-                  >
-                    PNG (Image)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setExportFormat("svg")}
-                    className={`py-2 px-3 rounded-xl font-bold border transition-all ${
-                      exportFormat === "svg"
-                        ? "bg-cyan-500 text-slate-950 border-cyan-400"
-                        : "bg-slate-950 text-slate-400 border-slate-800 hover:text-white"
-                    }`}
-                  >
-                    SVG (Vector)
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-slate-300 font-semibold mb-1.5">Background Style:</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setExportTransparent(false)}
-                    className={`py-2 px-3 rounded-xl font-bold border transition-all ${
-                      !exportTransparent
-                        ? "bg-indigo-600 text-white border-indigo-400"
-                        : "bg-slate-950 text-slate-400 border-slate-800 hover:text-white"
-                    }`}
-                  >
-                    Solid White (#FFFFFF)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setExportTransparent(true)}
-                    className={`py-2 px-3 rounded-xl font-bold border transition-all ${
-                      exportTransparent
-                        ? "bg-indigo-600 text-white border-indigo-400"
-                        : "bg-slate-950 text-slate-400 border-slate-800 hover:text-white"
-                    }`}
-                  >
-                    Transparent
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex gap-3 pt-2">
-              <button
-                onClick={() => {
-                  export1DPlot({
-                    gridPoints: currentFrameData.gridPoints,
-                    cvName: hillsData.cvNames[0] || "D.z",
-                    energyUnits,
-                    energyRefMode,
-                    format: exportFormat,
-                    transparent: exportTransparent
-                  });
-                  setShowExportModal(false);
-                }}
-                className="w-full py-2.5 bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/20"
-              >
-                <Download size={16} /> Download {exportFormat.toUpperCase()} Plot
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Drag and Drop Hover Overlay */}
       {isDraggingFile && (
         <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex flex-col items-center justify-center border-4 border-dashed border-cyan-400 rounded-3xl m-4 transition-all">
@@ -2699,7 +2615,7 @@ function HillsVisualizerInner() {
             <div>
               <h2 className="text-xl font-bold text-white">Drop your HILLS file here</h2>
               <p className="text-xs text-slate-400 mt-1">
-                Supports 1D and 2D PLUMED HILLS output files (including 900MB+ files)
+                Supports 1D and 2D PLUMED HILLS output files
               </p>
             </div>
           </div>
@@ -2925,395 +2841,218 @@ function HillsVisualizerInner() {
 
       {/* MAIN TAB CONTENT */}
       {hillsData && activeTab === "fes" && currentFrameData && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-2xl space-y-4 w-full">
           
-          {/* Main Chart Area */}
-          <div className="lg:col-span-8 bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4">
-            
-            <div className="flex flex-wrap justify-between items-center border-b border-slate-800 pb-3 gap-2">
-              <div>
-                <h2 className="text-base font-bold text-white flex items-center gap-2">
-                  <TrendingUp size={18} className="text-indigo-400" />
-                  {hillsData.is2D ? "Reconstructed 2D Free Energy Heatmap F(s₁, s₂)" : "Reconstructed Free Energy Profile F(s)"}
-                </h2>
-                <p className="text-slate-400 text-xs">
-                  {hillsData.is2D
-                    ? "2D Free Energy Surface reconstructed from 2D Gaussian HILLS summation"
-                    : "Click and drag across the chart to select a vertical zoom region (ROI) for export"}
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2">
-                {!hillsData.is2D && (gridMinUser || gridMaxUser) && (
-                  <div className="flex items-center gap-2 bg-cyan-950/90 border border-cyan-600/70 px-3 py-1 rounded-xl text-xs text-cyan-300 font-mono shadow-sm">
-                    <ZoomIn size={14} className="text-cyan-400 animate-pulse" />
-                    <span>ROI: [{gridMinUser || "Min"}, {gridMaxUser || "Max"}]</span>
-                    <button
-                      onClick={handleResetGridBounds}
-                      className="ml-1 text-slate-400 hover:text-white font-bold p-0.5 rounded"
-                      title="Reset Zoom / Clear ROI"
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                )}
-
-                {hillsData.is2D && (
-                  <select
-                    value={colorPalette}
-                    onChange={(e) => setColorPalette(e.target.value)}
-                    className="bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-xl px-2.5 py-1.5 outline-none font-medium"
-                  >
-                    <option value="Viridis">Viridis (Scientific Default)</option>
-                    <option value="Inferno">Inferno (Thermal Glow)</option>
-                    <option value="Spectral">Spectral (Rainbow)</option>
-                    <option value="CoolWarm">Cool-Warm (Blue-Red)</option>
-                  </select>
-                )}
-
-                {/* Download Plot (PNG/SVG) Button (Temporarily Deactivated) */}
-                {false && !hillsData.is2D && (
-                  <button
-                    onClick={() => setShowExportModal(true)}
-                    className="px-3 py-1.5 bg-cyan-950 hover:bg-cyan-900 text-cyan-300 border border-cyan-700/60 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm"
-                    title="Download 1D PMF Plot (PNG/SVG)"
-                  >
-                    <ImageIcon size={14} /> Download Plot (PNG/SVG)
-                  </button>
-                )}
-
-                <button
-                  onClick={handleExportFES}
-                  className="px-3 py-1.5 bg-indigo-950 hover:bg-indigo-900 text-indigo-300 border border-indigo-700/60 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm"
-                  title="Export PLUMED-compatible fes.dat file"
-                >
-                  <Download size={14} /> Export fes.dat
-                </button>
-              </div>
+          <div className="flex flex-wrap justify-between items-center border-b border-slate-800 pb-3 gap-2">
+            <div>
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <TrendingUp size={20} className="text-indigo-400" />
+                {hillsData.is2D ? "Reconstructed 2D Free Energy Heatmap F(s₁, s₂)" : "Reconstructed Free Energy Profile F(s)"}
+              </h2>
+              <p className="text-slate-400 text-xs mt-0.5">
+                {hillsData.is2D
+                  ? "2D Free Energy Surface reconstructed from 2D Gaussian HILLS summation"
+                  : "Click and drag across the chart to select a vertical zoom region (ROI) for export"}
+              </p>
             </div>
 
-            {/* 1D AreaChart vs 2D Heatmap Canvas */}
-            {!hillsData.is2D ? (
-              <div className="h-80 w-full pt-2 select-none">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart
-                    data={currentFrameData.gridPoints}
-                    margin={{ top: 15, right: 25, left: 10, bottom: 20 }}
-                    onMouseDown={handleMouseDown}
-                    onMouseMove={handleMouseMoveChart}
-                    onMouseUp={handleMouseUp}
-                  >
-                    <defs>
-                      <linearGradient id="fesGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.65} />
-                        <stop offset="95%" stopColor="#dc2626" stopOpacity={0.1} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                    <XAxis
-                      dataKey="s"
-                      type="number"
-                      domain={['dataMin', 'dataMax']}
-                      ticks={xAxisTicks}
-                      stroke="#64748b"
-                      tick={{ fill: "#94a3b8", fontSize: 11 }}
-                      label={{
-                        value: `Collective Variable (${hillsData.cvNames[0] || "CV1"})`,
-                        position: "insideBottom",
-                        offset: -12,
-                        fill: "#cbd5e1",
-                        fontSize: 12
-                      }}
-                    />
-                    <YAxis
-                      stroke="#64748b"
-                      tick={{ fill: "#94a3b8", fontSize: 11 }}
-                      domain={['auto', 'auto']}
-                      label={{
-                        value: `Free Energy F(s) [${energyUnits}]`,
-                        angle: -90,
-                        position: "insideLeft",
-                        offset: 10,
-                        fill: "#cbd5e1",
-                        fontSize: 12
-                      }}
-                    />
-                    <Tooltip
-                      content={({ active, payload }) => {
-                        if (active && payload && payload.length) {
-                          const data = payload[0].payload;
-                          return (
-                            <div className="bg-slate-950/95 backdrop-blur-md border border-slate-800 p-3 rounded-xl shadow-2xl text-xs space-y-1">
-                              <div className="font-mono text-cyan-400 font-bold border-b border-slate-800 pb-1">
-                                {hillsData.cvNames[0] || "CV"}: {data.s}
-                              </div>
-                              <div className="text-rose-300 font-semibold">
-                                F(s): {data.fes} {energyUnits}
-                              </div>
-                              <div className="text-slate-400 font-mono text-[10px]">
-                                V_bias: {data.vBias}
-                              </div>
-                            </div>
-                          );
-                        }
-                        return null;
-                      }}
-                    />
-
-                    <Area
-                      type="monotone"
-                      dataKey="fes"
-                      name="Free Energy F(s)"
-                      stroke="#f87171"
-                      strokeWidth={2.5}
-                      fill="url(#fesGradient)"
-                      isAnimationActive={false}
-                    />
-
-
-
-                    {/* Interactive Mouse Drag Selection Box */}
-                    {refAreaLeft && refAreaRight ? (
-                      <ReferenceArea
-                        x1={refAreaLeft}
-                        x2={refAreaRight}
-                        strokeOpacity={0.8}
-                        stroke="#38bdf8"
-                        fill="#0284c7"
-                        fillOpacity={0.35}
-                      />
-                    ) : null}
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <Canvas2DHeatmap
-                frameData={currentFrameData}
-                energyRefMode={energyRefMode}
-                energyUnits={energyUnits}
-                cvNames={hillsData.cvNames}
-                hills={hillsData.hills}
-                colorPalette={colorPalette}
-              />
-            )}
-
-            {/* Time Trajectory Progress Slider with Smooth REAL-TIME PLAY / PAUSE */}
-            <div className="bg-slate-950/80 border border-slate-800/80 p-4 rounded-xl space-y-3">
-              <div className="flex justify-between items-center text-xs">
-                <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
+              {!hillsData.is2D && (gridMinUser || gridMaxUser) && (
+                <div className="flex items-center gap-2 bg-cyan-950/90 border border-cyan-600/70 px-3 py-1 rounded-xl text-xs text-cyan-300 font-mono shadow-sm">
+                  <ZoomIn size={14} className="text-cyan-400 animate-pulse" />
+                  <span>ROI: [{gridMinUser || "Min"}, {gridMaxUser || "Max"}]</span>
                   <button
-                    onClick={() => setIsPlayingTime(!isPlayingTime)}
-                    className={`py-1.5 px-3.5 rounded-xl font-bold text-xs shadow-md flex items-center gap-1.5 transition-all ${
-                      isPlayingTime
-                        ? "bg-amber-500 text-slate-950 hover:bg-amber-400 shadow-amber-500/20"
-                        : "bg-emerald-500 text-slate-950 hover:bg-emerald-400 shadow-emerald-500/20"
-                    }`}
+                    onClick={handleResetGridBounds}
+                    className="ml-1 text-slate-400 hover:text-white font-bold p-0.5 rounded"
+                    title="Reset Zoom / Clear ROI"
                   >
-                    {isPlayingTime ? <><Pause size={14} /> PAUSE</> : <><Play size={14} /> PLAY</>}
+                    <X size={14} />
                   </button>
-
-                  <button
-                    onClick={() => setTimeStepProgress(1)}
-                    className="p-1.5 bg-slate-900 hover:bg-slate-800 text-slate-400 rounded-lg border border-slate-800"
-                    title="Reset to 1%"
-                  >
-                    <RotateCcw size={14} />
-                  </button>
-                </div>
-
-                <span className="font-mono text-cyan-400 font-bold text-xs">
-                  {timeStepProgress}% (t = {currentFrameData.sampleTime.toFixed(1)} ps • {currentFrameData.activeHillsCount} hills)
-                </span>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <input
-                  type="range"
-                  min="1"
-                  max="100"
-                  value={timeStepProgress}
-                  onChange={(e) => setTimeStepProgress(parseInt(e.target.value))}
-                  className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-                />
-              </div>
-
-              <div className="flex justify-between text-[10px] text-slate-500 font-mono">
-                <span>0 ps (Start)</span>
-                <span>50%</span>
-                <span>{hillsData.timeRange[1].toFixed(0)} ps (End)</span>
-              </div>
-            </div>
-
-          </div>
-
-          {/* Controls & Configuration Panel */}
-          <div className="lg:col-span-4 space-y-5">
-            
-            {/* Display Mode Switcher Card */}
-            <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4">
-              <h3 className="font-bold text-xs uppercase tracking-wider text-slate-400 flex items-center gap-2.5 border-b border-slate-800/80 pb-3 pt-0.5">
-                <Sliders size={15} className="text-indigo-400" />
-                Energy Display Mode
-              </h3>
-
-              <div className="space-y-2 text-xs">
-                <label className="flex items-start justify-between p-2.5 bg-slate-950 rounded-xl border border-slate-800/80 cursor-pointer hover:border-slate-700 transition-all gap-2">
-                  <div>
-                    <div className="font-semibold text-slate-200">Bulk Plateau Reference [F(bulk) = 0]</div>
-                    <div className="text-[10px] text-slate-400 mt-0.5 leading-tight">
-                      Sets bulk solvent energy to 0, minimum well depth is -ΔG
-                    </div>
-                  </div>
-                  <input
-                    type="radio"
-                    name="energyRef"
-                    checked={energyRefMode === "plateauZero"}
-                    onChange={() => setEnergyRefMode("plateauZero")}
-                    className="accent-indigo-500 mt-1"
-                  />
-                </label>
-
-                <label className="flex items-start justify-between p-2.5 bg-slate-950 rounded-xl border border-slate-800/80 cursor-pointer hover:border-slate-700 transition-all gap-2">
-                  <div>
-                    <div className="font-semibold text-slate-200">Relative to Minimum [F(min) = 0]</div>
-                    <div className="text-[10px] text-slate-400 mt-0.5 leading-tight">
-                      Sets minimum bound well to 0, bulk plateau is +ΔG
-                    </div>
-                  </div>
-                  <input
-                    type="radio"
-                    name="energyRef"
-                    checked={energyRefMode === "minZero"}
-                    onChange={() => setEnergyRefMode("minZero")}
-                    className="accent-indigo-500 mt-1"
-                  />
-                </label>
-
-                <label className="flex items-start justify-between p-2.5 bg-slate-950 rounded-xl border border-slate-800/80 cursor-pointer hover:border-slate-700 transition-all gap-2">
-                  <div>
-                    <div className="font-semibold text-slate-200">Direct Absolute Potential [F(s) = -V(s)]</div>
-                    <div className="text-[10px] text-slate-400 mt-0.5 leading-tight">
-                      Raw unshifted cumulative bias potential
-                    </div>
-                  </div>
-                  <input
-                    type="radio"
-                    name="energyRef"
-                    checked={energyRefMode === "raw"}
-                    onChange={() => setEnergyRefMode("raw")}
-                    className="accent-indigo-500 mt-1"
-                  />
-                </label>
-              </div>
-
-              <div className="pt-1">
-                <label className="flex items-center justify-between p-2.5 bg-slate-950 rounded-xl border border-slate-800/80 cursor-pointer hover:border-slate-700 transition-all text-xs">
-                  <span className="font-semibold text-slate-300">
-                    Well-Tempered Scaling Factor [γ/(γ-1)]
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={isWtScaling}
-                    onChange={(e) => setIsWtScaling(e.target.checked)}
-                    className="accent-indigo-500 rounded"
-                  />
-                </label>
-              </div>
-            </div>
-
-            {/* Grid & Calculation Settings Form */}
-            <form onSubmit={handleApplyGridParams} className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-2xl p-5.5 sm:p-6 shadow-2xl space-y-4">
-              <h3 className="font-bold text-sm text-white flex items-center gap-2.5 border-b border-slate-800/80 pb-3 pt-0.5">
-                <Sliders size={16} className="text-indigo-400" />
-                FES Grid Parameters
-              </h3>
-
-              {!hillsData?.is2D && (
-                <div>
-                  <label className="block text-xs text-slate-400 mb-1 font-medium">
-                    Grid Resolution (Bins):
-                  </label>
-                  <input
-                    type="number"
-                    min="50"
-                    max="1000"
-                    value={inputNumBins}
-                    onChange={(e) => setInputNumBins(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-cyan-300 font-mono focus:ring-2 focus:ring-indigo-500 outline-none"
-                  />
                 </div>
               )}
 
-              <div>
-                <label className="block text-xs text-slate-400 mb-1 font-medium">
-                  Well-Tempered Bias Factor (γ):
-                </label>
-                <input
-                  type="text"
-                  placeholder={`Detected: ${hillsData?.effectiveBiasFactor}`}
-                  value={inputCustomBias}
-                  onChange={(e) => setInputCustomBias(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-indigo-300 font-mono focus:ring-2 focus:ring-indigo-500 outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs text-slate-400 mb-1 font-medium">
-                  Energy Units:
-                </label>
+              {hillsData.is2D && (
                 <select
-                  value={energyUnits}
-                  onChange={(e) => setEnergyUnits(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 outline-none"
+                  value={colorPalette}
+                  onChange={(e) => setColorPalette(e.target.value)}
+                  className="bg-slate-950 border border-slate-800 text-slate-200 text-xs rounded-xl px-2.5 py-1.5 outline-none font-medium"
                 >
-                  <option value="kJ/mol">kJ/mol</option>
-                  <option value="kcal/mol">kcal/mol</option>
+                  <option value="Viridis">Viridis (Scientific Default)</option>
+                  <option value="Inferno">Inferno (Thermal Glow)</option>
+                  <option value="Spectral">Spectral (Rainbow)</option>
+                  <option value="CoolWarm">Cool-Warm (Blue-Red)</option>
                 </select>
-              </div>
+              )}
 
-              <div className="grid grid-cols-2 gap-2 pt-1">
-                <div>
-                  <label className="block text-[10px] text-slate-400 mb-1">Min CV1 Bound:</label>
-                  <input
-                    type="text"
-                    placeholder="Auto"
-                    value={inputGridMin}
-                    onChange={(e) => setInputGridMin(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-slate-300 font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] text-slate-400 mb-1">Max CV1 Bound:</label>
-                  <input
-                    type="text"
-                    placeholder="Auto"
-                    value={inputGridMax}
-                    onChange={(e) => setInputGridMax(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-slate-300 font-mono"
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-2 pt-2">
+              {/* Direct Clean Export PNG Button */}
+              {!hillsData.is2D && (
                 <button
-                  type="submit"
-                  className="flex-1 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-md"
+                  onClick={handleExportPNG}
+                  className="px-3 py-1.5 bg-cyan-950 hover:bg-cyan-900 text-cyan-300 border border-cyan-700/60 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm"
+                  title="Export 1D PMF Plot as PNG"
                 >
-                  <RefreshCw size={14} /> Apply Parameters
+                  <ImageIcon size={14} /> Export PNG
+                </button>
+              )}
+
+              <button
+                onClick={handleExportFES}
+                className="px-3 py-1.5 bg-indigo-950 hover:bg-indigo-900 text-indigo-300 border border-indigo-700/60 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm"
+                title="Export PLUMED-compatible fes.dat file"
+              >
+                <Download size={14} /> Export fes.dat
+              </button>
+            </div>
+          </div>
+
+          {/* MASSIVE FULL-WIDTH 1D AreaChart vs 2D Heatmap Canvas */}
+          {!hillsData.is2D ? (
+            <div className="h-[520px] w-full pt-2 select-none">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart
+                  data={currentFrameData.gridPoints}
+                  margin={{ top: 15, right: 25, left: 10, bottom: 20 }}
+                  onMouseDown={handleMouseDown}
+                  onMouseMove={handleMouseMoveChart}
+                  onMouseUp={handleMouseUp}
+                >
+                  <defs>
+                    <linearGradient id="fesGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#ef4444" stopOpacity={0.65} />
+                      <stop offset="95%" stopColor="#dc2626" stopOpacity={0.1} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                  <XAxis
+                    dataKey="s"
+                    type="number"
+                    domain={['dataMin', 'dataMax']}
+                    ticks={xAxisTicks}
+                    stroke="#64748b"
+                    tick={{ fill: "#94a3b8", fontSize: 12 }}
+                    label={{
+                      value: `Collective Variable (${hillsData.cvNames[0] || "CV1"})`,
+                      position: "insideBottom",
+                      offset: -12,
+                      fill: "#cbd5e1",
+                      fontSize: 13
+                    }}
+                  />
+                  <YAxis
+                    stroke="#64748b"
+                    tick={{ fill: "#94a3b8", fontSize: 12 }}
+                    domain={['auto', 'auto']}
+                    label={{
+                      value: `Free Energy F(s) [${energyUnits}]`,
+                      angle: -90,
+                      position: "insideLeft",
+                      offset: 10,
+                      fill: "#cbd5e1",
+                      fontSize: 13
+                    }}
+                  />
+                  <Tooltip
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        const data = payload[0].payload;
+                        return (
+                          <div className="bg-slate-950/95 backdrop-blur-md border border-slate-800 p-3 rounded-xl shadow-2xl text-xs space-y-1">
+                            <div className="font-mono text-cyan-400 font-bold border-b border-slate-800 pb-1">
+                              {hillsData.cvNames[0] || "CV"}: {data.s}
+                            </div>
+                            <div className="text-rose-300 font-semibold">
+                              F(s): {data.fes} {energyUnits}
+                            </div>
+                            <div className="text-slate-400 font-mono text-[10px]">
+                              V_bias: {data.vBias}
+                            </div>
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+
+                  <Area
+                    type="monotone"
+                    dataKey="fes"
+                    name="Free Energy F(s)"
+                    stroke="#f87171"
+                    strokeWidth={2.8}
+                    fill="url(#fesGradient)"
+                    isAnimationActive={false}
+                  />
+
+                  {/* Interactive Mouse Drag Selection Box */}
+                  {refAreaLeft && refAreaRight ? (
+                    <ReferenceArea
+                      x1={refAreaLeft}
+                      x2={refAreaRight}
+                      strokeOpacity={0.8}
+                      stroke="#38bdf8"
+                      fill="#0284c7"
+                      fillOpacity={0.35}
+                    />
+                  ) : null}
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <Canvas2DHeatmap
+              frameData={currentFrameData}
+              energyRefMode={energyRefMode}
+              energyUnits={energyUnits}
+              cvNames={hillsData.cvNames}
+              hills={hillsData.hills}
+              colorPalette={colorPalette}
+            />
+          )}
+
+          {/* Time Trajectory Progress Slider with Smooth REAL-TIME PLAY / PAUSE */}
+          <div className="bg-slate-950/80 border border-slate-800/80 p-4 rounded-xl space-y-3">
+            <div className="flex justify-between items-center text-xs">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setIsPlayingTime(!isPlayingTime)}
+                  className={`py-1.5 px-3.5 rounded-xl font-bold text-xs shadow-md flex items-center gap-1.5 transition-all ${
+                    isPlayingTime
+                      ? "bg-amber-500 text-slate-950 hover:bg-amber-400 shadow-amber-500/20"
+                      : "bg-emerald-500 text-slate-950 hover:bg-emerald-400 shadow-emerald-500/20"
+                  }`}
+                >
+                  {isPlayingTime ? <><Pause size={14} /> PAUSE</> : <><Play size={14} /> PLAY</>}
                 </button>
 
                 <button
-                  type="button"
-                  onClick={handleResetGridBounds}
-                  className="px-3 py-2 bg-slate-950 hover:bg-slate-800 text-slate-400 border border-slate-800 rounded-xl text-xs font-semibold"
-                  title="Reset CV Bounds to Auto"
+                  onClick={() => setTimeStepProgress(0)}
+                  className="p-1.5 bg-slate-900 hover:bg-slate-800 text-slate-400 rounded-lg border border-slate-800"
+                  title="Reset to 0% (Flat t=0)"
                 >
                   <RotateCcw size={14} />
                 </button>
               </div>
 
-            </form>
+              <span className="font-mono text-cyan-400 font-bold text-xs">
+                {timeStepProgress}% (t = {currentFrameData.sampleTime.toFixed(1)} ps • {currentFrameData.activeHillsCount} hills)
+              </span>
+            </div>
 
+            <div className="flex items-center gap-3">
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={timeStepProgress}
+                onChange={(e) => setTimeStepProgress(parseInt(e.target.value))}
+                className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+              />
+            </div>
+
+            <div className="flex justify-between text-[10px] text-slate-500 font-mono">
+              <span>0 ps (0% - Flat)</span>
+              <span>50%</span>
+              <span>{hillsData.timeRange[1].toFixed(0)} ps (End)</span>
+            </div>
           </div>
 
         </div>
@@ -3321,7 +3060,7 @@ function HillsVisualizerInner() {
 
       {/* TAB 2: Gaussian Height Decay W(t) */}
       {hillsData && activeTab === "height" && (
-        <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4">
+        <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4 w-full">
           <div className="border-b border-slate-800 pb-3">
             <h2 className="text-base font-bold text-white flex items-center gap-2">
               <Zap size={18} className="text-amber-400" />
@@ -3332,7 +3071,7 @@ function HillsVisualizerInner() {
             </p>
           </div>
 
-          <div className="h-96 w-full pt-2">
+          <div className="h-[500px] w-full pt-2">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartHeightData} margin={{ top: 10, right: 20, left: 10, bottom: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
@@ -3377,7 +3116,7 @@ function HillsVisualizerInner() {
 
       {/* TAB 3: Collective Variable Trajectory s(t) */}
       {hillsData && activeTab === "cv" && (
-        <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4">
+        <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4 w-full">
           <div className="border-b border-slate-800 pb-3">
             <h2 className="text-base font-bold text-white flex items-center gap-2">
               <Activity size={18} className="text-emerald-400" />
@@ -3388,7 +3127,7 @@ function HillsVisualizerInner() {
             </p>
           </div>
 
-          <div className="h-96 w-full pt-2">
+          <div className="h-[500px] w-full pt-2">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
                 data={chartCvData}
