@@ -4,7 +4,7 @@
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![GROMACS](https://img.shields.io/badge/GROMACS-2021+-brightgreen.svg)](https://www.gromacs.org/)
 
-This repository consolidates computational research tools, simulation analysis pipelines, interactive Virtual Reality (VR) workflows, and proteomics data processing developed during PhD research.
+This repository consolidates computational research tools, simulation analysis pipelines, interactive Virtual Reality (VR) workflows, proteomics data processing, and document prepress tools developed during PhD research.
 
 ---
 
@@ -28,6 +28,13 @@ PhD/
 │   ├── metadynamics_laboratory/      # React 19 + Vite + Tailwind web application
 │   ├── metadynamics_laboratory.sh   # Automated project generator script
 │   └── README.md                     # Laboratory specific documentation
+├── _PDF_Stamp_/              # Automated dynamic PDF stamping pipeline with PyMuPDF
+│   ├── Stamps.py                     # Main Python stamping & preview script
+│   └── README.md                     # Stamping tool documentation
+├── _Visor_PDF_/              # Web application for PDF book-spread prepress visualization
+│   ├── src/                          # React + Vite + Tailwind source code
+│   ├── visor-pdf.html                # Standalone single-file HTML version
+│   └── README.md                     # Visualizer documentation
 └── README.md                 # Main project documentation & VR setup guide
 ```
 
@@ -52,6 +59,8 @@ PhD/
   - [Proteomics Processing](#proteomics-processing)
   - [SUDOE VR B-Factor Pipeline](#sudoe-vr-b-factor-pipeline)
   - [Metadynamics Laboratory](#metadynamics-laboratory)
+  - [PDF Prepress Book Spread Visualizer](#pdf-prepress-book-spread-visualizer)
+  - [Automated PDF Stamping Pipeline](#automated-pdf-stamping-pipeline)
 
 ---
 
@@ -184,4 +193,15 @@ Located in [`_METADYNAMICS_LABORATORY/`](./_METADYNAMICS_LABORATORY/):
 - **`metadynamics_laboratory/`**: React 19 + Vite + Tailwind web application combining 3 modules:
   1. **1D & 2D Metadynamics Simulators**: Overdamped Langevin dynamics with Box-Muller Gaussian thermal noise $\mathcal{N}(0, 1)$, custom 1D/2D potential functions $V(x)$ & $V(x,y)$, 2D Canvas heatmap rendering ($V$, $V+V_B$, $V_B$, $F_{\text{est}}$), PRNG seed reproducibility (`mulberry32`), presets, and session JSON export/restore.
   2. **PLUMED HILLS Visualizer & Inspector**: Non-blocking background Web Worker parsing engine, 60 FPS real-time FES timeline animation, drag-and-drop file upload, energy display modes ($F = -V$ vs relative $F_{\min} = 0$), Well-Tempered scaling factor $\gamma$, multi-stage convergence analysis, and PLUMED `fes.dat` export.
-- **`metadynamics_laboratory.sh`**: Automated generator script to bootstrap a new, fully-configured instance of the laboratory application from scratch with all dependencies (`react`, `vite`, `tailwindcss`, `recharts`, `lucide-react`) and complete source code. See [`_METADYNAMICS_LABORATORY/README.md`](./_METADYNAMICS_LABORATORY/README.md) for full module documentation.
+- **`metadynamics_laboratory.sh`**: Automated generator script to bootstrap a new, fully-configured instance of the laboratory application from scratch. See [`_METADYNAMICS_LABORATORY/README.md`](./_METADYNAMICS_LABORATORY/README.md) for full module documentation.
+
+### PDF Prepress Book Spread Visualizer
+Located in [`_Visor_PDF_/`](./_Visor_PDF_/):
+- **`src/App.jsx`**: Interactive React web application designed to preview PDF documents in facing-pages book-spread format (Pliegos), rendering page 1 (cover) on the right and pairs of even/odd pages with 3D spine fold shadows.
+- Features preset paper format aspect ratio simulation (**A4**, **A5**, **Carta/Letter**, **Legal**, **Original**), real-time zoom, single-page inspection mode, and `IntersectionObserver` canvas lazy-loading.
+- Includes a standalone browser variant ([`visor-pdf.html`](./_Visor_PDF_/visor-pdf.html)) runnable without Node.js. See [`_Visor_PDF_/README.md`](./_Visor_PDF_/README.md) for details.
+
+### Automated PDF Stamping Pipeline
+Located in [`_PDF_Stamp_/`](./_PDF_Stamp_/):
+- **`Stamps.py`**: PyMuPDF automation script for overlaying sequential 3D graphics, watermarks, or decorative stamps across multi-page PDF documents (e.g. PhD thesis drafts).
+- Features alternating odd/even page positioning (`ALTERNATE_MODE`), automatic horizontal coordinate mirroring (`POSITION_MODE_B = "mirror"`), customizable page ranges (`START_PAGE`, `FINAL_PAGE`), and automatic system preview thumbnail generation (`xdg-open`). See [`_PDF_Stamp_/README.md`](./_PDF_Stamp_/README.md) for details.
