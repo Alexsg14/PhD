@@ -1,0 +1,376 @@
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+
+// --- CONFIGURACIÓN DE TAMAÑOS DE PAPEL ---
+// Proporciones basadas en ancho/alto estándar
+const PAPER_SIZES = {
+    Original: null, // Usa la proporción nativa del PDF
+    A4: { name: 'A4', ratio: 210 / 297 },
+    A5: { name: 'A5', ratio: 148 / 210 },
+    Carta: { name: 'Carta (Letter)', ratio: 215.9 / 279.4 },
+    Legal: { name: 'Legal', ratio: 215.9 / 355.6 },
+};
+
+// --- ICONOS (SVG en línea para máxima compatibilidad) ---
+const Icons = {
+    Upload: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>,
+    Book: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" /></svg>,
+    File: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" /><polyline points="14 2 14 8 20 8" /></svg>,
+    ZoomIn: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /><line x1="11" y1="8" x2="11" y2="14" /><line x1="8" y1="11" x2="14" y2="11" /></svg>,
+    ZoomOut: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /><line x1="8" y1="11" x2="14" y2="11" /></svg>,
+    Info: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
+};
+
+// --- COMPONENTE DE RENDERIZADO DE PÁGINA INDIVIDUAL ---
+// Utiliza IntersectionObserver para renderizar solo cuando está visible (optimización para PDFs grandes)
+const PdfPage = ({ pdfDoc, pageNum, paperSizeKey, isLeftPage, scaleMultiplier }) => {
+    const canvasRef = useRef(null);
+    const containerRef = useRef(null);
+    const [isVisible, setIsVisible] = useState(false);
+    const [isRendered, setIsRendered] = useState(false);
+    const [pdfNativeRatio, setPdfNativeRatio] = useState(1);
+
+    // Observador para Lazy Loading
+    useEffect(() => {
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                if (entry.isIntersecting) {
+                    setIsVisible(true);
+                    observer.disconnect(); // Una vez visible, lo mantenemos y dejamos de observar
+                }
+            },
+            { rootMargin: '200px' } // Empezar a cargar un poco antes de que entre en pantalla
+        );
+
+        if (containerRef.current) {
+            observer.observe(containerRef.current);
+        }
+        return () => observer.disconnect();
+    }, []);
+
+    // Lógica de renderizado con PDF.js
+    useEffect(() => {
+        let renderTask = null;
+
+        const renderPage = async () => {
+            if (!isVisible || !pdfDoc || !pageNum || isRendered) return;
+
+            try {
+                const page = await pdfDoc.getPage(pageNum);
+                const viewport = page.getViewport({ scale: 2.0 }); // Escala interna alta para nitidez
+                setPdfNativeRatio(viewport.width / viewport.height);
+
+                const canvas = canvasRef.current;
+                if (!canvas) return;
+
+                const context = canvas.getContext('2d');
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+
+                const renderContext = {
+                    canvasContext: context,
+                    viewport: viewport,
+                };
+
+                renderTask = page.render(renderContext);
+                await renderTask.promise;
+                setIsRendered(true);
+            } catch (error) {
+                if (error.name !== 'RenderingCancelledException') {
+                    console.error("Error renderizando página:", error);
+                }
+            }
+        };
+
+        renderPage();
+
+        return () => {
+            if (renderTask) {
+                renderTask.cancel();
+            }
+        };
+    }, [isVisible, pdfDoc, pageNum, isRendered]);
+
+    // Si no hay número de página (ej. parte interior de la cubierta), devolvemos espacio en blanco
+    if (!pageNum) {
+        return <div className="flex-1 opacity-0 pointer-events-none" />;
+    }
+
+    // Calculamos la proporción del contenedor base
+    const containerRatio = PAPER_SIZES[paperSizeKey]?.ratio || pdfNativeRatio;
+
+    // Estilos dinámicos para el contenedor para mantener la proporción
+    const containerStyle = {
+        aspectRatio: `${containerRatio}`,
+        width: `100%`,
+    };
+
+    // Simulación visual del lomo y las sombras de las páginas
+    const shadowClasses = isLeftPage
+        ? "shadow-[-5px_5px_15px_rgba(0,0,0,0.1)] after:absolute after:right-0 after:top-0 after:h-full after:w-8 after:bg-gradient-to-r after:from-transparent after:to-black/10"
+        : "shadow-[5px_5px_15px_rgba(0,0,0,0.1)] after:absolute after:left-0 after:top-0 after:h-full after:w-8 after:bg-gradient-to-l after:from-transparent after:to-black/10";
+
+    const isCover = pageNum === 1;
+
+    return (
+        <div className="flex-1 flex flex-col items-center max-w-[50%]">
+            <div
+                ref={containerRef}
+                style={containerStyle}
+                className={`relative bg-white flex items-center justify-center overflow-hidden transition-all duration-300 ${shadowClasses} border border-gray-200`}
+            >
+                {!isRendered && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-gray-50 text-gray-400">
+                        <span className="animate-pulse">Cargando...</span>
+                    </div>
+                )}
+                <canvas
+                    ref={canvasRef}
+                    className={`w-full h-full ${PAPER_SIZES[paperSizeKey] ? 'object-contain' : 'object-fill'} bg-white`}
+                    style={{ opacity: isRendered ? 1 : 0, transition: 'opacity 0.3s' }}
+                />
+
+                {/* Indicador visual si el PDF no encaja perfecto en el formato de papel elegido */}
+                {PAPER_SIZES[paperSizeKey] && Math.abs(containerRatio - pdfNativeRatio) > 0.05 && isRendered && (
+                    <div className="absolute bottom-2 left-2 right-2 text-center text-[10px] bg-yellow-100 text-yellow-800 p-1 border border-yellow-300 rounded opacity-80 backdrop-blur-sm pointer-events-none">
+                        El PDF tiene una proporción distinta al papel seleccionado.
+                    </div>
+                )}
+            </div>
+
+            {/* Etiquetas Informativas */}
+            <div className="mt-4 flex flex-col items-center">
+                <span className="font-bold text-slate-700 text-sm">Página {pageNum}</span>
+                <span className={`text-xs px-2 py-0.5 rounded-full mt-1 ${isCover ? 'bg-indigo-100 text-indigo-700' : isLeftPage ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                    {isCover ? 'Cubierta' : isLeftPage ? 'Par (Izquierda)' : 'Impar (Derecha)'}
+                </span>
+            </div>
+        </div>
+    );
+};
+
+
+// --- COMPONENTE PRINCIPAL ---
+export default function PrintPreviewer() {
+    const [pdfReady, setPdfReady] = useState(false);
+    const [pdfDoc, setPdfDoc] = useState(null);
+    const [totalPages, setTotalPages] = useState(0);
+    const [fileName, setFileName] = useState('');
+
+    const [viewMode, setViewMode] = useState('book'); // 'book' o 'single'
+    const [paperSize, setPaperSize] = useState('Original');
+    const [zoomLevel, setZoomLevel] = useState(100);
+
+    // Cargar PDF.js desde CDN
+    useEffect(() => {
+        if (window.pdfjsLib) {
+            setPdfReady(true);
+            return;
+        }
+
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+        script.async = true;
+        script.onload = () => {
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+            setPdfReady(true);
+        };
+        document.body.appendChild(script);
+    }, []);
+
+    // Manejar subida de archivo
+    const handleFileUpload = async (event) => {
+        const file = event.target.files[0];
+        if (!file || !pdfReady) return;
+
+        if (file.type !== 'application/pdf') {
+            alert('Por favor, selecciona un archivo PDF válido.');
+            return;
+        }
+
+        setFileName(file.name);
+
+        try {
+            const arrayBuffer = await file.arrayBuffer();
+            const loadingTask = window.pdfjsLib.getDocument({ data: arrayBuffer });
+            const pdf = await loadingTask.promise;
+            setPdfDoc(pdf);
+            setTotalPages(pdf.numPages);
+            setZoomLevel(100); // Reset zoom
+        } catch (error) {
+            console.error("Error al cargar el PDF:", error);
+            alert('Error al leer el archivo PDF. Podría estar corrupto o protegido con contraseña.');
+        }
+    };
+
+    // Generar la estructura de pliegos (Spreads) para modo libro
+    const generateSpreads = () => {
+        const spreads = [];
+        if (totalPages === 0) return spreads;
+
+        // Primer pliego: [Vacio] [Página 1 (Cubierta)]
+        spreads.push([null, 1]);
+
+        // Siguientes pliegos: [Par] [Impar]
+        for (let i = 2; i <= totalPages; i += 2) {
+            spreads.push([i, i + 1 <= totalPages ? i + 1 : null]);
+        }
+
+        return spreads;
+    };
+
+    const spreads = generateSpreads();
+
+    return (
+        <div className="min-h-screen bg-slate-100 text-slate-800 font-sans flex flex-col">
+            {/* BARRA DE HERRAMIENTAS (TOPBAR) */}
+            <header className="bg-white border-b border-slate-200 px-6 py-4 flex flex-wrap items-center justify-between gap-4 sticky top-0 z-50 shadow-sm">
+                <div className="flex items-center gap-4">
+                    <div className="bg-indigo-600 text-white p-2 rounded-lg">
+                        <Icons.Book />
+                    </div>
+                    <div>
+                        <h1 className="font-bold text-lg leading-tight">Preimpresión PDF</h1>
+                        <p className="text-xs text-slate-500">Visualizador de Pliegos</p>
+                    </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-4 flex-1 justify-center">
+                    {/* Botón de Carga */}
+                    <label className={`flex items-center gap-2 px-4 py-2 rounded-md font-medium text-sm transition-colors cursor-pointer ${pdfReady ? 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}>
+                        <Icons.Upload />
+                        {fileName ? 'Cambiar PDF' : 'Seleccionar PDF'}
+                        <input
+                            type="file"
+                            accept=".pdf"
+                            className="hidden"
+                            onChange={handleFileUpload}
+                            disabled={!pdfReady}
+                        />
+                    </label>
+
+                    {/* Opciones de Visualización (Solo habilitadas si hay documento) */}
+                    <div className={`flex items-center gap-4 ${!pdfDoc ? 'opacity-50 pointer-events-none' : ''}`}>
+
+                        <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-lg border border-slate-200">
+                            <button
+                                onClick={() => setViewMode('book')}
+                                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === 'book' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}
+                            >
+                                <Icons.Book /> Vista Libro
+                            </button>
+                            <button
+                                onClick={() => setViewMode('single')}
+                                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === 'single' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}
+                            >
+                                <Icons.File /> Individual
+                            </button>
+                        </div>
+
+                        <div className="h-8 w-px bg-slate-200"></div>
+
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-slate-600">Formato:</span>
+                            <select
+                                value={paperSize}
+                                onChange={(e) => setPaperSize(e.target.value)}
+                                className="text-sm border-slate-200 rounded-md bg-white px-3 py-1.5 focus:ring-2 focus:ring-indigo-500 outline-none border"
+                            >
+                                {Object.keys(PAPER_SIZES).map(key => (
+                                    <option key={key} value={key}>{PAPER_SIZES[key]?.name || 'Original (Automático)'}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Controles de Zoom */}
+                <div className={`flex items-center gap-2 ${!pdfDoc ? 'opacity-50 pointer-events-none' : ''}`}>
+                    <button onClick={() => setZoomLevel(z => Math.max(50, z - 10))} className="p-1.5 hover:bg-slate-100 rounded text-slate-600">
+                        <Icons.ZoomOut />
+                    </button>
+                    <span className="text-sm font-medium w-12 text-center">{zoomLevel}%</span>
+                    <button onClick={() => setZoomLevel(z => Math.min(200, z + 10))} className="p-1.5 hover:bg-slate-100 rounded text-slate-600">
+                        <Icons.ZoomIn />
+                    </button>
+                </div>
+            </header>
+
+            {/* ÁREA PRINCIPAL DE VISUALIZACIÓN */}
+            <main className="flex-1 overflow-auto p-8 flex flex-col items-center">
+                {!pdfDoc ? (
+                    <div className="m-auto max-w-md text-center bg-white p-8 rounded-xl border border-slate-200 shadow-sm">
+                        <div className="bg-indigo-50 text-indigo-600 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <Icons.Upload />
+                        </div>
+                        <h2 className="text-xl font-bold mb-2">Comprueba tu documento antes de imprimir</h2>
+                        <p className="text-slate-500 mb-6 text-sm">
+                            Sube un PDF para visualizar cómo quedarán las páginas pares e impares al encuadernar. Podrás simular márgenes seleccionando formatos de papel específicos.
+                        </p>
+                        {!pdfReady && (
+                            <div className="text-sm text-amber-600 bg-amber-50 p-3 rounded-lg flex items-center justify-center gap-2">
+                                <span className="animate-spin h-4 w-4 border-2 border-amber-600 border-t-transparent rounded-full"></span>
+                                Cargando motor de visualización...
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <div
+                        className="flex flex-col items-center gap-16 transition-all duration-300 origin-top"
+                        style={{ width: `${zoomLevel}%`, minWidth: '800px', maxWidth: '2000px' }}
+                    >
+                        {/* Mensaje de ayuda contextual */}
+                        <div className="flex items-center gap-2 bg-blue-50 text-blue-700 px-4 py-2 rounded-lg text-sm mb-4">
+                            <Icons.Info />
+                            {viewMode === 'book'
+                                ? "Vista de Pliegos: Comprueba que la página 1 (cubierta) va a la derecha. Las páginas pares van siempre a la izquierda."
+                                : "Vista Individual: Muestra las páginas una a una. Útil para revisar sangrados y recortes."
+                            }
+                        </div>
+
+                        {/* MODO LIBRO (PLIEGOS) */}
+                        {viewMode === 'book' && spreads.map((spread, index) => (
+                            <div key={index} className="flex flex-col items-center w-full">
+                                <div className="text-xs font-semibold text-slate-400 mb-4 tracking-wider uppercase">
+                                    {index === 0 ? "Exterior / Cubierta" : `Pliego ${index + 1}`}
+                                </div>
+
+                                <div className="flex w-full justify-center max-w-5xl items-stretch">
+                                    {/* Página Izquierda (Par o Nula) */}
+                                    <PdfPage
+                                        pdfDoc={pdfDoc}
+                                        pageNum={spread[0]}
+                                        paperSizeKey={paperSize}
+                                        isLeftPage={true}
+                                    />
+
+                                    {/* Lomo Visual */}
+                                    <div className="w-1 bg-gradient-to-r from-slate-300 to-slate-200 z-10 mx-[-2px] shadow-[0_0_10px_rgba(0,0,0,0.2)]" />
+
+                                    {/* Página Derecha (Impar) */}
+                                    <PdfPage
+                                        pdfDoc={pdfDoc}
+                                        pageNum={spread[1]}
+                                        paperSizeKey={paperSize}
+                                        isLeftPage={false}
+                                    />
+                                </div>
+                            </div>
+                        ))}
+
+                        {/* MODO INDIVIDUAL */}
+                        {viewMode === 'single' && Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                            <div key={pageNum} className="flex flex-col items-center w-full max-w-2xl mb-12">
+                                <PdfPage
+                                    pdfDoc={pdfDoc}
+                                    pageNum={pageNum}
+                                    paperSizeKey={paperSize}
+                                    isLeftPage={pageNum % 2 === 0} // Par es izquierda, impar es derecha
+                                />
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </main>
+        </div>
+    );
+}
