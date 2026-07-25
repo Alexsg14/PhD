@@ -23,7 +23,8 @@ Interactive web-based simulation environment and analysis tool for **1D & 2D Met
   - Click anywhere on the 2D canvas to relocate the walker particle.
 - **Metadynamics Algorithms**:
   - **Standard Metadynamics**: Constant height Gaussian deposition over time.
-  - **Well-Tempered Metadynamics (WT-MetaD)**: Dynamic Gaussian height scaling based on accumulated bias potential $W(t) = W_0 \exp\left(-\frac{V_B(x,y)}{\Delta T}\right)$.
+  - **Well-Tempered Metadynamics (WT-MetaD)**: Dynamic Gaussian height scaling based on accumulated bias potential $V_B(x,y)$:
+    $$W(t) = W_0 \exp\left(-\frac{V_B(x,y)}{\Delta T}\right)$$
   - **Real-Time Free Energy Reconstruction**: Live calculation and rendering of estimated Free Energy Surfaces $F_{\text{est}}(x)$ and $F_{\text{est}}(x, y)$.
 
 ### 2. 📊 PLUMED HILLS Visualizer & Inspector (`HillsVisualizer`)
@@ -31,7 +32,7 @@ Interactive web-based simulation environment and analysis tool for **1D & 2D Met
 - **60 FPS Real-Time FES Animation**: Pre-calculates 100 timeline grid frames incrementally in the worker thread. Playing or scrubbing the time slider renders the evolving Free Energy Surface $F(s, t)$ smoothly at 60 FPS in real time.
 - **Drag & Drop File Upload**: Drag any PLUMED `HILLS` file directly onto the web application window for instant parsing with a visual drop target overlay.
 - **Energy Display Modes**: Switch between **Direct Absolute Potential** $F(s) = -V(s)$ and **Relative Potential** ($F_{\min} = 0$).
-- **Well-Tempered Scaling & Custom Bias Factor**: Automatically detects or allows custom input for bias factor $\gamma$, applying WT scaling $\frac{\gamma}{\gamma - 1}$.
+- **Well-Tempered Scaling & Custom Bias Factor**: Automatically detects or allows custom input for bias factor $\gamma$, applying WT scaling factor $\frac{\gamma}{\gamma - 1}$.
 - **PLUMED `fes.dat` Export**: One-click export of reconstructed FES grid files compatible with PLUMED `sum_hills` format.
 - **Multi-Stage Convergence Analysis**: Superimposes FES profiles at 25%, 50%, 75%, and 100% completion to visually assess free energy convergence.
 

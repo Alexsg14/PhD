@@ -94,7 +94,7 @@ python Data_analysis/Severity_matrix.py
 Standalone script dedicated to calculating statistical significance ($t$-test / Mann-Whitney $U$-test) and log fold changes between clinical clusters.
 
 **Math Formulation:**
-$$\text{FC} = \frac{\bar{X}_{\text{Class } 1}}{\bar{X}_{\text{Class } 0}}, \quad \text{Log}_2(\text{FC}) = \log_2(\text{FC}), \quad y = -\log_{10}(p)$$
+$$\text{FC} = \frac{\bar{X}_{\text{Class 1}}}{\bar{X}_{\text{Class 0}}}, \quad \log_2(\text{FC}) = \log_2\left(\frac{\bar{X}_{\text{Class 1}}}{\bar{X}_{\text{Class 0}}}\right), \quad y = -\log_{10}(p)$$
 
 **Usage:**
 ```bash
