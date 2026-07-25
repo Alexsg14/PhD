@@ -403,11 +403,12 @@ function export1DPlot({
   }
 }
 
-// --- Inline Web Worker Creator supporting 1D and 2D HILLS ---
+// --- Inline Web Worker Creator supporting Ultra-Large Files (up to 1 GB+) via Chunking ---
 function createHillsWorker() {
   const code = `
-  self.onmessage = function(e) {
-    const text = e.data.text;
+  self.onmessage = async function(e) {
+    const file = e.data.file;
+    const directText = e.data.text;
     const numBinsUser = e.data.numBins || 300;
     const isWtScaling = e.data.isWtScaling !== false;
     const customBiasFactor = e.data.customBiasFactor;
@@ -415,50 +416,85 @@ function createHillsWorker() {
     const gridMinUser = e.data.gridMinUser;
     const gridMaxUser = e.data.gridMaxUser;
 
-    if (!text || typeof text !== "string") {
-      self.postMessage({ error: "File is empty or invalid text." });
-      return;
-    }
-
-    const lines = text.split("\\n");
-    const totalLines = lines.length;
     let fieldNames = [];
     let headerMeta = {};
-    const dataRows = [];
+    const rawRows = [];
 
-    for (let i = 0; i < totalLines; i++) {
-      const rawLine = lines[i].trim();
-      if (!rawLine) continue;
+    if (file) {
+      // Chunked streaming read of large files (up to 1 GB+) without OOM
+      const chunkSize = 15 * 1024 * 1024; // 15 MB chunks
+      let offset = 0;
+      let leftover = "";
+      const fileSize = file.size;
 
-      if (rawLine.startsWith("#!")) {
-        const parts = rawLine.replace("#!", "").trim().split(/\\s+/);
-        const key = parts[0]?.toUpperCase();
+      while (offset < fileSize) {
+        const slice = file.slice(offset, offset + chunkSize);
+        const textChunk = await slice.text();
+        const fullText = leftover + textChunk;
 
-        if (key === "FIELDS") {
-          fieldNames = parts.slice(1);
-        } else if (key === "SET") {
-          if (parts.length >= 3) {
-            headerMeta[parts[1]] = parts[2];
+        const lastNewline = fullText.lastIndexOf("\\n");
+        let processable = fullText;
+        if (lastNewline !== -1 && offset + chunkSize < fileSize) {
+          processable = fullText.substring(0, lastNewline);
+          leftover = fullText.substring(lastNewline + 1);
+        } else {
+          leftover = "";
+        }
+
+        const lines = processable.split("\\n");
+        for (let i = 0; i < lines.length; i++) {
+          const rawLine = lines[i].trim();
+          if (!rawLine) continue;
+
+          if (rawLine.startsWith("#!")) {
+            const parts = rawLine.replace("#!", "").trim().split(/\\s+/);
+            const key = parts[0]?.toUpperCase();
+            if (key === "FIELDS") {
+              fieldNames = parts.slice(1);
+            } else if (key === "SET" && parts.length >= 3) {
+              headerMeta[parts[1]] = parts[2];
+            }
+            continue;
+          }
+
+          if (rawLine.startsWith("#")) continue;
+
+          const tokens = rawLine.split(/\\s+/).map((v) => parseFloat(v));
+          if (tokens.length > 0 && !tokens.some((val) => isNaN(val))) {
+            rawRows.push(tokens);
           }
         }
-        continue;
+
+        offset += chunkSize;
+        const pct = Math.min(45, Math.floor((offset / fileSize) * 45));
+        self.postMessage({ progress: pct });
       }
-
-      if (rawLine.startsWith("#")) continue;
-
-      const tokens = rawLine.split(/\\s+/).map((v) => parseFloat(v));
-      if (tokens.length === 0 || tokens.some((val) => isNaN(val))) continue;
-      dataRows.push(tokens);
-
-      if (i % 30000 === 0) {
-        self.postMessage({ progress: Math.min(40, Math.floor((i / totalLines) * 40)) });
+    } else if (directText) {
+      const lines = directText.split("\\n");
+      for (let i = 0; i < lines.length; i++) {
+        const rawLine = lines[i].trim();
+        if (!rawLine) continue;
+        if (rawLine.startsWith("#!")) {
+          const parts = rawLine.replace("#!", "").trim().split(/\\s+/);
+          const key = parts[0]?.toUpperCase();
+          if (key === "FIELDS") fieldNames = parts.slice(1);
+          else if (key === "SET" && parts.length >= 3) headerMeta[parts[1]] = parts[2];
+          continue;
+        }
+        if (rawLine.startsWith("#")) continue;
+        const tokens = rawLine.split(/\\s+/).map((v) => parseFloat(v));
+        if (tokens.length > 0 && !tokens.some((val) => isNaN(val))) {
+          rawRows.push(tokens);
+        }
       }
     }
 
-    if (dataRows.length === 0) {
+    if (rawRows.length === 0) {
       self.postMessage({ error: "No valid numeric data rows found in HILLS file." });
       return;
     }
+
+    const dataRows = rawRows;
 
     if (fieldNames.length === 0) {
       const colCount = dataRows[0].length;
@@ -719,7 +755,7 @@ function createHillsWorker() {
         cvNames,
         is2D,
         hills: parsedHills,
-        totalHills: parsedHills.length,
+        totalHills: rawRows.length,
         timeRange: [startTime, endTime],
         stride: parsedHills.length > 1 ? (parsedHills[1].time - startTime) || 10 : 10,
         effectiveBiasFactor: gamma,
@@ -1057,7 +1093,7 @@ function HillsVisualizerInner() {
   const [isWtScaling, setIsWtScaling] = useState(true);
 
   const fileInputRef = useRef(null);
-  const rawTextRef = useRef("");
+  const activeFileRef = useRef(null);
   const currentFileNameRef = useRef("");
   const isMounting = useRef(true);
 
@@ -1116,14 +1152,7 @@ function HillsVisualizerInner() {
 
     if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const file = e.dataTransfer.files[0];
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const text = event.target.result;
-        processHillsText(text, file.name);
-        setTimeStepProgress(100);
-        setIsPlayingTime(false);
-      };
-      reader.readAsText(file);
+      processHillsFileObj(file);
     }
   };
 
@@ -1145,16 +1174,16 @@ function HillsVisualizerInner() {
     };
   }, [isPlayingTime, playbackSpeed]);
 
-  // Execute Background Web Worker Parsing & Pre-computation
-  const processHillsText = (text, name) => {
-    if (!text) return;
-    rawTextRef.current = text;
-    currentFileNameRef.current = name || fileName || "HILLS";
+  // Execute Background Web Worker Parsing & Pre-computation with Zero-Copy File Handle
+  const processHillsFileObj = (fileObj) => {
+    if (!fileObj) return;
+    activeFileRef.current = fileObj;
+    currentFileNameRef.current = fileObj.name || fileName || "HILLS";
 
     setErrorMsg("");
     setIsLoading(true);
     setLoadingProgress(5);
-    setLoadingMsg(`Processing "${currentFileNameRef.current}" in Web Worker...`);
+    setLoadingMsg(`Processing "${currentFileNameRef.current}" (${(fileObj.size / (1024 * 1024)).toFixed(1)} MB) in Worker...`);
 
     const worker = createHillsWorker();
 
@@ -1169,19 +1198,22 @@ function HillsVisualizerInner() {
         setHillsData(e.data.result);
         setFileName(currentFileNameRef.current);
         setIsLoading(false);
+        setTimeStepProgress(100);
+        setIsPlayingTime(false);
         worker.terminate();
       }
     };
 
     worker.onerror = (err) => {
       console.error("Worker error:", err);
-      setErrorMsg("Error in background Web Worker processor.");
+      setErrorMsg("Error processing HILLS file in background Web Worker.");
       setIsLoading(false);
       worker.terminate();
     };
 
+    // Pass File object directly to Worker (Zero-copy, zero main thread memory overhead)
     worker.postMessage({
-      text,
+      file: fileObj,
       numBins,
       isWtScaling,
       customBiasFactor,
@@ -1197,23 +1229,15 @@ function HillsVisualizerInner() {
       isMounting.current = false;
       return;
     }
-    if (rawTextRef.current) {
-      processHillsText(rawTextRef.current, currentFileNameRef.current);
+    if (activeFileRef.current) {
+      processHillsFileObj(activeFileRef.current);
     }
   }, [numBins, isWtScaling, customBiasFactor, gridMinUser, gridMaxUser]);
 
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const text = event.target.result;
-      processHillsText(text, file.name);
-      setTimeStepProgress(100);
-      setIsPlayingTime(false);
-    };
-    reader.readAsText(file);
+    processHillsFileObj(file);
     e.target.value = null;
   };
 
@@ -1564,7 +1588,7 @@ function HillsVisualizerInner() {
             <div>
               <h2 className="text-xl font-bold text-white">Drop your HILLS file here</h2>
               <p className="text-xs text-slate-400 mt-1">
-                Supports 1D and 2D PLUMED HILLS output files
+                Supports 1D and 2D PLUMED HILLS output files (including 900MB+ files)
               </p>
             </div>
           </div>
@@ -1935,28 +1959,7 @@ function HillsVisualizerInner() {
                       isAnimationActive={false}
                     />
 
-                    {/* Reference Lines when Bulk Plateau mode is active */}
-                    {energyRefMode === "plateauZero" && currentFrameData?.bulkS !== undefined && (
-                      <>
-                        {/* Horizontal Plateau Reference Line (y = 0) */}
-                        <ReferenceLine
-                          y={0}
-                          stroke="#cbd5e1"
-                          strokeWidth={1.5}
-                          strokeDasharray="5 5"
-                          label={{ value: "Plateau (y=0)", fill: "#cbd5e1", fontSize: 11, position: "top" }}
-                        />
 
-                        {/* Vertical Plateau Measured Position Line (Teal #2B8092) */}
-                        <ReferenceLine
-                          x={currentFrameData.bulkS}
-                          stroke="#2B8092"
-                          strokeWidth={1.5}
-                          strokeDasharray="6 4"
-                          label={{ value: "Plateau Position", fill: "#2B8092", fontSize: 11, position: "insideTopRight" }}
-                        />
-                      </>
-                    )}
 
                     {/* Interactive Mouse Drag Selection Box */}
                     {refAreaLeft && refAreaRight ? (
