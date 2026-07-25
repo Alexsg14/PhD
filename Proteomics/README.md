@@ -111,14 +111,17 @@ python Data_analysis/run_volcano.py
 
 ### 4. MLR Normalization & Fold Change Verification (`fc_S_normalizada_vs_sinnormalizar.py` & `verificacion_MLR.py`)
 
-Statistical validation tools for checking Multi-Linear Regression (MLR) normalization effects on supernatant (`_S`) datasets:
+Statistical validation tools for checking Multi-Linear Regression (MLR) normalization effects on supernatant (`_S`) datasets.
 
-- **`fc_S_normalizada_vs_sinnormalizar.py`**: For each protein, computes the Fold Change using normalized (`FC_norm`) and unnormalized (`FC_unnorm`) peak areas and evaluates the log-scale shift:
+**`fc_S_normalizada_vs_sinnormalizar.py`** computes Fold Change for MLR-normalized and unnormalized data separately:
 
-  - `FC = mean_class1 / mean_class0` (applied to both normalized and raw datasets)
-  - `diff = log2(FC_norm) - log2(FC_unnorm)`
+$$\text{FC}_{\text{norm}} = \frac{\overline{X}_{1,\text{norm}}}{\overline{X}_{0,\text{norm}}}, \qquad \text{FC}_{\text{raw}} = \frac{\overline{X}_{1,\text{raw}}}{\overline{X}_{0,\text{raw}}}$$
 
-- **`verificacion_MLR.py`**: Analyzes per-patient MLR scaling factors, pre-normalization total ion signal distributions, and linear regression fits.
+Then evaluates the log-scale normalization shift per protein:
+
+$$\Delta = \log_2(\text{FC}_{\text{norm}}) - \log_2(\text{FC}_{\text{raw}})$$
+
+**`verificacion_MLR.py`**: Analyzes per-patient MLR scaling factors, pre-normalization total ion signal distributions, and linear regression fits between normalized and raw intensities.
 
 **Usage:**
 ```bash
