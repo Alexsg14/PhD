@@ -1,32 +1,74 @@
 #!/bin/bash
-# ==============================================================================
-# Script for B-factor Attribution on Receptor Atoms/Residues from Vina Results
-# ==============================================================================
 
-# Activate Conda environment if available
-CONDA_BASE="${CONDA_BASE:-$HOME/anaconda3}"
-if [ -f "$CONDA_BASE/etc/profile.d/conda.sh" ]; then
-    source "$CONDA_BASE/etc/profile.d/conda.sh"
-    conda activate obabel_env 2>/dev/null || true
+# ================================
+# Parse command-line arguments
+# ================================
+
+# Load gromacs at 2024.3 version
+
+source $HOME/gromacs/2024.3/bin/GMXRC
+
+while getopts p:v:l: flag
+do
+    case "${flag}" in
+        p) path=${OPTARG};;
+        v) vr_folder=${OPTARG};;
+        l) ligand=${OPTARG};;
+        *) echo "Usage: $0 -p <path> -v <vr_folder> -l <ligand>"
+           exit 1;;
+    esac
+done
+
+if [ -z "$path" ] || [ -z "$vr_folder" ] || [ -z "$ligand" ]; then
+    echo "Missing required arguments."
+    echo "Usage: $0 -p <path> -v <vr_folder> -l <ligand>"
+    exit 1
 fi
 
-# Define input/output paths (defaults to local directory or environment overrides)
-DATA_DIR="${DATA_DIR:-./data}"
-PDBQT_LIGS="${PDBQT_LIGS:-$DATA_DIR/all.pdbqt}"
-OUTPUT_PDB="${OUTPUT_PDB:-$DATA_DIR/all.pdb}"
-RECEPTOR="${RECEPTOR:-$DATA_DIR/receptor.pdb}"
-DIR_MODELS="${DIR_MODELS:-$DATA_DIR/models_pdb}"
-DIR_OUTPUT="${DIR_OUTPUT:-$DATA_DIR/bfactor_receptor}"
-CUTOFF="${CUTOFF:-5.0}"
 
-# Run Python script
-python ligand_energy_attribution_bfactor.py \
-    --pdbqt_ligs "$PDBQT_LIGS" \
-    --output_pdb "$OUTPUT_PDB" \
-    --receptor "$RECEPTOR" \
-    --dir_models "$DIR_MODELS" \
-    --dir_output "$DIR_OUTPUT" \
-    --cutoff "$CUTOFF"
 
-# Deactivate environment
-conda deactivate 2>/dev/null || true
+# ================================
+# Activate Conda environment
+# ================================
+
+
+# Create output folder
+mkdir -p "$vr_folder"
+
+# Convert and concatenate trajectories
+gmx convert-trj -f "$path/min_fep1.trr" -o "$path/min_fep1_c.xtc"
+gmx convert-trj -f "$path/min_fep2.trr" -o "$path/min_fep2_c.xtc"
+
+gmx trjcat -f "$path/min_fep1_c.xtc" "$path/eq_fep.xtc" "$path/min_fep2_c.xtc" "$path/eq_nvt_fep.xtc" "$path/eq_npt_fep_1.xtc" "$path/eq_npt_fep_2.xtc" "$path/prod_fep.xtc" -o "$path/traj.xtc"
+
+echo -e "Protein\nOther_Protein\nq" | gmx trjconv -s "$path/prod_fep.tpr" -f "$path/traj.xtc" -pbc mol -center -n "$path/index.ndx" -o "$path/center_complete.pdb" -e 0
+
+echo -e "Protein\nOther_Protein\nq" | gmx trjconv -s "$path/prod_fep.tpr" -f "$path/traj.xtc" -pbc mol -center -n "$path/index.ndx" -o "$path/center_complete.xtc" -b 0 -e 2500
+
+# Execute the Python script
+# before --receptor center_completo.pdb
+python ligand_energy_attribution.py \
+    --pdbqt_ligs  "$path/all.pdbqt" \
+    --output_pdb "$path/all.pdb" \
+    --receptor "$path/receptor.pdb" \
+    --dir_models "$path/models_center_pdb" \
+    --dir_output "$path/bfactor_receptor_center" \
+    --cutoff 5.0
+
+# Copy and rename output files
+cp "$path/all.pdb" "$vr_folder"
+cp "$path/bfactor_receptor_center/receptor_final_bfactor_residue.pdb" "$vr_folder"
+cp "$path/center_complete.xtc" "$vr_folder/center.xtc"
+cp "$path/center_complete.pdb" "$vr_folder/center.pdb"
+mv "$vr_folder/receptor_final_bfactor_residue.pdb" "$vr_folder/receptor.pdb"
+
+# Copy ligand pdb file
+cp $ligand "$vr_folder/ligand.pdb"
+
+
+# Execute aminoacid displaying script
+python aa_interaction_flags.py \
+    --file "$path"\
+    --pdb_path "$path/receptor.pdb" \
+    --sdf_path "$path/all.sdf" \
+    --output_path "$vr_folder/aa_interactions_arx.json"
