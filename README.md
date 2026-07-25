@@ -21,9 +21,9 @@ PhD/
 │   ├── Spin_scripts/         # Block average calculations & 2D PMF plotting
 │   ├── PMFs/                 # Free energy surface calculations
 │   └── VMD/                  # Visualization scripts
-├── Proteomics/               # Proteomics data processing & severity matrix heatmaps
-│   ├── Data_analysis/        # Dataset processing modules
-│   └── Severity_matrix.py    # Heatmap generator for patient severity matrix
+├── Proteomics/               # SWATH-MS proteomics processing, PCA, clustering & clinical severity heatmaps
+│   ├── Data_analysis/        # Analysis scripts (analise_Julio26.py, Severity_matrix.py, run_volcano.py, MLR verification)
+│   └── README.md             # Module documentation
 ├── Repo-SUDOE/               # VR B-factor energy mapping & interaction tools
 │   ├── VR_BFACTOR/           # Energy attribution to receptor B-factors & ProLIF interaction tools
 │   └── README.md             # Module documentation
@@ -190,7 +190,9 @@ Located in [`Molecular Dynamics/`](./Molecular%20Dynamics/):
 
 ### Proteomics Processing
 Located in [`Proteomics/`](./Proteomics/):
-- **`Severity_matrix.py`**: Processes clinical patient data and binary biomarker tables to generate patient severity heatmaps using Seaborn.
+- **`Data_analysis/analise_Julio26.py`**: Full SWATH-MS proteomics data processing pipeline (PCA, PowerTransformer feature scaling, K-Means clustering, silhouette scores, clinical data association).
+- **`Data_analysis/Severity_matrix.py`**: Processes clinical patient data and binary biomarker tables to generate patient severity heatmaps using Seaborn.
+- **`Data_analysis/run_volcano.py`**: Standalone differential expression analysis and Volcano Plot generator ($\log_2(\text{FC})$ vs $-\log_{10}(p)$). See [`Proteomics/README.md`](./Proteomics/README.md) for full module documentation.
 
 ### SUDOE VR B-Factor Pipeline
 Located in [`Repo-SUDOE/`](./Repo-SUDOE/):
