@@ -9,6 +9,22 @@ Interactive React web application for **1D & 2D Metadynamics**, **OPES (On-the-f
 
 ---
 
+## 📸 Interface Screenshots
+
+| 🧪 1D Metadynamics Simulator | 🌐 2D Metadynamics Heatmap |
+| :---: | :---: |
+| ![1D Metadynamics Simulator](docs/screenshots/1d_simulator.png) | ![2D Metadynamics Simulator](docs/screenshots/2d_simulator.png) |
+
+| ⚡ OPES 1D Simulator | 📈 PLUMED HILLS Inspector |
+| :---: | :---: |
+| ![OPES 1D Simulator](docs/screenshots/opes_simulator.png) | ![PLUMED HILLS Visualizer](docs/screenshots/hills_inspector.png) |
+
+| 🔍 PLUMED OPES Inspector |
+| :---: |
+| ![PLUMED OPES Inspector](docs/screenshots/opes_inspector.png) |
+
+---
+
 ## ⚡ Quick Start
 
 ### 1. Install Dependencies

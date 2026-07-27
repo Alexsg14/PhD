@@ -9,11 +9,29 @@ Interactive web-based simulation environment and high-performance analysis suite
 
 ---
 
+## 📸 Interface Screenshots
+
+| 🧪 1D Metadynamics Simulator | 🌐 2D Metadynamics Heatmap |
+| :---: | :---: |
+| ![1D Metadynamics Simulator](docs/screenshots/1d_simulator.png) | ![2D Metadynamics Simulator](docs/screenshots/2d_simulator.png) |
+
+| ⚡ OPES 1D Simulator | 📈 PLUMED HILLS Inspector |
+| :---: | :---: |
+| ![OPES 1D Simulator](docs/screenshots/opes_simulator.png) | ![PLUMED HILLS Visualizer](docs/screenshots/hills_inspector.png) |
+
+| 🔍 PLUMED OPES Inspector |
+| :---: |
+| ![PLUMED OPES Inspector](docs/screenshots/opes_inspector.png) |
+
+---
+
 ## 🌟 Key Features & Modules
 
 The application features 5 specialized, interactive modules accessible from the sidebar navigation:
 
 ### 1. 🧪 1D Metadynamics Simulator (`1D`)
+![1D Metadynamics Simulator](docs/screenshots/1d_simulator.png)
+
 - **Overdamped Langevin (Brownian) Dynamics**: Simulates stochastic particle diffusion over 1D energy landscapes with thermal noise via **Box-Muller Gaussian distribution** $\mathcal{N}(0, 1)$.
 - **Standard & Well-Tempered Metadynamics (WT-MetaD)**:
   - Standard constant Gaussian deposition over time.
@@ -23,6 +41,8 @@ The application features 5 specialized, interactive modules accessible from the 
 - **Live Diagnostics**: Real-time charts for walker position $x(t)$, Potential Energy Surface $V(x)$, Bias Potential $V_B(x)$, Estimated Free Energy $F_{\text{est}}(x) = -\frac{\gamma}{\gamma-1} V_B(x)$, and Gaussian height decay $W(t)$.
 
 ### 2. 🌐 2D Metadynamics Simulator (`2D`)
+![2D Metadynamics Simulator](docs/screenshots/2d_simulator.png)
+
 - **2D Langevin Trajectory Engine**: Simulates walker diffusion over 2D collective variable surfaces $(CV_x, CV_y)$.
 - **High-Performance HTML5 Canvas Heatmap**:
   - Renders 2D potential landscapes ($V$, $V+V_B$, $V_B$, $F_{\text{est}}$) at 60 FPS.
@@ -32,12 +52,16 @@ The application features 5 specialized, interactive modules accessible from the 
 - **Flexible 2D Potential Surfaces**: Preset surfaces (Symmetric 4-Well, Asymmetric Double Well, Egg-Carton Periodic, Concentric Ring, Mueller-Brown Potential) or custom mathematical functions $V(x, y)$.
 
 ### 3. ⚡ OPES 1D Simulator (`OPES`)
+![OPES 1D Simulator](docs/screenshots/opes_simulator.png)
+
 - **On-the-Fly Probability Enhanced Sampling**: Simulates OPES Explore / OPES Target distribution sampling with adaptive kernel accumulation.
 - **Adaptive Kernel Deposition**: Dynamically adjusts deposited kernel weights $W_k$ and bandwidths $\sigma_k$ to achieve uniform sampling or target probability distribution $P_{target}(s)$.
 - **Live Estimation**: Real-time visualization of accumulated probability distribution $P(s)$, bias potential $V(s)$, and reconstructed Free Energy Surface $F(s) = -k_B T \ln P(s)$.
 - **Interactive Control Panel**: Configure barrier energy estimates $\Delta E^\ddagger$, kernel pace, initial bandwidth $\sigma_0$, bias factor $\gamma$, and simulation temperature $T$.
 
 ### 4. 📈 PLUMED HILLS Visualizer & Inspector (`HILLS`)
+![PLUMED HILLS Visualizer](docs/screenshots/hills_inspector.png)
+
 - **Background Web Worker Architecture**: Offloads 100% of large text file line parsing, tokenization, and Gaussian summation grid calculations to a background thread to prevent UI freezing.
 - **60 FPS Real-Time FES Animation**: Calculates timeline grid frames incrementally. Play, pause, loop, or scrub through the timeline to watch the Free Energy Surface $F(s, t)$ evolve smoothly.
 - **Drag & Drop File Loader**: Drag any PLUMED `HILLS` file directly onto the web application window for immediate analysis.
@@ -49,6 +73,8 @@ The application features 5 specialized, interactive modules accessible from the 
 - **PLUMED `fes.dat` Export**: One-click export of reconstructed FES grid files fully compatible with PLUMED `sum_hills`.
 
 ### 5. 🔍 PLUMED OPES Inspector (`OPES_INSPECTOR`)
+![PLUMED OPES Inspector](docs/screenshots/opes_inspector.png)
+
 - **PLUMED OPES State Parser**: Reads and parses PLUMED `KERNELS` and `OPES_STATE` output files.
 - **Kernel Expansion Analysis**: Computes Free Energy Surfaces from adaptive kernel weights $W_k$ and kernel centers $s_k$.
 - **Interactive Timeline Playback**: Step or play through kernel accumulation steps to assess sampling coverage and FES convergence over time.
@@ -111,9 +137,12 @@ The simulation engine includes a 100% deterministic pseudo-random number generat
 
 ```
 _METADYNAMICS_LABORATORY/
+├── docs/
+│   └── screenshots/                    # Application screenshots for README
 ├── HILLS                               # Sample PLUMED HILLS dataset
 ├── metadynamics_laboratory.sh          # Generator script for new projects
 └── metadynamics_laboratory/            # Web Application Root
+    ├── docs/screenshots/               # Application screenshots
     ├── src/
     │   ├── App.jsx                     # Main layout & 5-mode sidebar navigation
     │   ├── MetadynamicsLab.jsx         # 1D Metadynamics simulation engine & UI
