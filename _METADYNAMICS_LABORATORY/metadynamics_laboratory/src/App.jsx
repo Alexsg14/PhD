@@ -204,6 +204,8 @@ function App() {
               customBiasFactor={customBiasFactor}
               gridMinUser={gridMinUser}
               gridMaxUser={gridMaxUser}
+              setGridMinUser={setGridMinUser}
+              setGridMaxUser={setGridMaxUser}
               energyUnits={energyUnits}
               setEnergyUnits={setEnergyUnits}
               energyRefMode={energyRefMode}
