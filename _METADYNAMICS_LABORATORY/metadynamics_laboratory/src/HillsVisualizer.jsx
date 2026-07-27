@@ -2034,7 +2034,12 @@ function HillsVisualizerInner({
             <div className="flex justify-between items-center text-xs">
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setIsPlayingTime(!isPlayingTime)}
+                  onClick={() => {
+                    if (!isPlayingTime && timeStepProgress >= 100) {
+                      setTimeStepProgress(0);
+                    }
+                    setIsPlayingTime(!isPlayingTime);
+                  }}
                   className={`py-1 px-3 rounded-lg font-bold text-xs shadow-md flex items-center gap-1.5 transition-all ${
                     isPlayingTime
                       ? "bg-amber-500 text-slate-950 hover:bg-amber-400 shadow-amber-500/20"

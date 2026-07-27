@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { MathBlock } from './MathEq';
+import OpesVisualizer from './OpesVisualizer';
 import {
-  Play, Pause, RotateCcw, Activity, BookOpen, Zap, Sliders, AlertCircle
+  Play, Pause, RotateCcw, Activity, BookOpen, Zap, Sliders, AlertCircle, Upload
 } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -187,20 +188,22 @@ function stepSimulation(state, nSteps) {
     stepCount++;
   }
 
-  // Update OPES bias (KDE)
+  // Update OPES bias (KDE) — band-limited: only visit bins within ~5σ
   if (sum_weights > 0) {
     const n_eff = Math.pow(1.0 + sum_weights, 2) / (1.0 + sum_weights2);
     let sigma_i = sigma_0 * Math.pow((n_eff * 3.0 / 4.0), -0.2);
     sigma_i = Math.max(sigma_i, DX * 0.8);
-    const inv_s2 = 1.0 / (sigma_i * sigma_i);
+    const inv_s2  = 1.0 / (sigma_i * sigma_i);
+    const bw_bins = Math.ceil(Math.sqrt(24) * sigma_i / DX) + 1; // cutoff at ~5σ
     const prob_unnorm = new Float64Array(N_BINS);
     let Z_n = 0;
     for (let i = 0; i < N_BINS; i++) {
-      const x_i = MIN_X + i * DX;
       let p_x = 0;
-      for (let j = 0; j < N_BINS; j++) {
+      const j0 = Math.max(0, i - bw_bins);
+      const j1 = Math.min(N_BINS - 1, i + bw_bins);
+      for (let j = j0; j <= j1; j++) {
         if (weighted_counts[j] > 0) {
-          const dist = x_i - (MIN_X + j * DX);
+          const dist = (i - j) * DX;
           p_x += weighted_counts[j] * Math.exp(-0.5 * dist * dist * inv_s2);
         }
       }
@@ -255,8 +258,8 @@ export default function OPESSimulator() {
   const [eqError,  setEqError]  = useState('');
   const [activeTab, setActiveTab] = useState('sim');
 
-  const simRef   = useRef(null);
-  const animRef  = useRef(null);
+  const simRef  = useRef(null);
+  const rafRef  = useRef(null);
   const [running,   setRunning]   = useState(false);
   const [chartData, setChartData] = useState(null);
   const [stepCount, setStepCount] = useState(0);
@@ -270,56 +273,80 @@ export default function OPESSimulator() {
     return true;
   }, []);
 
-  // Build chart snapshot
+  // Build chart snapshot — single pass, Float64Array, no Array.from
   const buildChartData = useCallback(() => {
     const s = simRef.current;
     if (!s) return;
     const factor  = 1 - 1 / s.gamma;
-    const sumHist = Array.from(s.Histogram).reduce((a, b) => a + b, 0);
+    const invBeta = 1 / s.beta;
+
+    let sumHist = 0;
+    for (let i = 0; i < N_BINS; i++) sumHist += s.Histogram[i];
 
     let Z_biased = 0;
-    const PBI = s.xSpace.map((_, i) => {
+    const PBI = new Float64Array(N_BINS);
+    for (let i = 0; i < N_BINS; i++) {
       const p = Math.exp(-s.beta * (s.FES_true[i] + s.Bias[i]));
+      PBI[i] = p;
       Z_biased += p * DX;
-      return p;
-    });
-    PBI.forEach((_, i) => { PBI[i] /= Z_biased || 1; });
-    const p_idx = Math.max(0, Math.min(N_BINS - 1, Math.floor((s.current_x - MIN_X) / DX)));
+    }
+    if (Z_biased > 0) for (let i = 0; i < N_BINS; i++) PBI[i] /= Z_biased;
 
-    setChartData({
-      fes:  s.xSpace.map((x, i) => ({
-        x,
-        trueFes:  +s.FES_true[i].toFixed(4),
-        opesFes:  (factor !== 0 && s.Bias[i] !== 0) ? +(-s.Bias[i] / (factor * (1 / s.beta))).toFixed(4) : null,
-        particle: i === p_idx ? +s.FES_true[i].toFixed(4) : null,
-      })),
-      bias: s.xSpace.map((x, i) => ({ x, bias: +s.Bias[i].toFixed(4) })),
-      prob: s.xSpace.map((x, i) => ({ x, probTrue: +s.Prob_unbiased[i].toFixed(6), probOpes: +s.Prob_est[i].toFixed(6) })),
-      traj: s.xSpace.map((x, i) => ({
-        x,
-        target:  +s.Prob_target[i].toFixed(6),
-        biasedP: +PBI[i].toFixed(6),
-        hist:    sumHist > 0 ? +(s.Histogram[i] / (sumHist * DX)).toFixed(6) : 0,
-      })),
-    });
+    const p_idx = Math.max(0, Math.min(N_BINS - 1, Math.floor((s.current_x - MIN_X) / DX)));
+    const fes  = new Array(N_BINS);
+    const bias = new Array(N_BINS);
+    const prob = new Array(N_BINS);
+    const traj = new Array(N_BINS);
+
+    for (let i = 0; i < N_BINS; i++) {
+      const x = s.xSpace[i];
+      const opesFes = (factor !== 0 && s.Bias[i] !== 0)
+        ? +(-s.Bias[i] / (factor * invBeta)).toFixed(4)
+        : null;
+      fes[i]  = { x, trueFes: +s.FES_true[i].toFixed(4), opesFes, particle: i === p_idx ? +s.FES_true[i].toFixed(4) : null };
+      bias[i] = { x, bias: +s.Bias[i].toFixed(4) };
+      prob[i] = { x, probTrue: +s.Prob_unbiased[i].toFixed(6), probOpes: +s.Prob_est[i].toFixed(6) };
+      traj[i] = { x, target: +s.Prob_target[i].toFixed(6), biasedP: +PBI[i].toFixed(6), hist: sumHist > 0 ? +(s.Histogram[i] / (sumHist * DX)).toFixed(6) : 0 };
+    }
+
+    setChartData({ fes, bias, prob, traj });
     setStepCount(s.stepCount);
   }, []);
 
   useEffect(() => { initSim(gamma, beta, barrier, equation, speed); buildChartData(); }, []); // eslint-disable-line
 
-  const frame = useCallback(() => {
-    if (!simRef.current) return;
-    stepSimulation(simRef.current, simRef.current.speed);
-    buildChartData();
-    animRef.current = requestAnimationFrame(frame);
-  }, [buildChartData]);
+  // RAF loop: simulation at ~20fps, charts at ~10fps (prevents setInterval queue buildup)
+  useEffect(() => {
+    if (!running) {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      return;
+    }
+    const SIM_MS   = 50; // step simulation every ~50ms
+    const CHART_MS = 50;  // rebuild charts every ~50ms (~20fps, same as MetadynamicsLab)
+    let lastSim   = 0;
+    let lastChart = 0;
 
-  const startSim  = useCallback(() => { setRunning(true);  animRef.current = requestAnimationFrame(frame); }, [frame]);
-  const pauseSim  = useCallback(() => { setRunning(false); cancelAnimationFrame(animRef.current); }, []);
-  const toggleSim = useCallback(() => { running ? pauseSim() : startSim(); }, [running, startSim, pauseSim]);
+    const tick = (now) => {
+      if (now - lastSim >= SIM_MS && simRef.current) {
+        stepSimulation(simRef.current, simRef.current.speed);
+        lastSim = now;
+        if (now - lastChart >= CHART_MS) {
+          buildChartData();
+          lastChart = now;
+        }
+      }
+      rafRef.current = requestAnimationFrame(tick);
+    };
+
+    rafRef.current = requestAnimationFrame(tick);
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+  }, [running, buildChartData]);
+
+  const startSim  = useCallback(() => { setRunning(true); }, []);
+  const pauseSim  = useCallback(() => { setRunning(false); }, []);
+  const toggleSim = useCallback(() => { setRunning((prev) => !prev); }, []);
 
   const handleReset = useCallback(() => {
-    cancelAnimationFrame(animRef.current);
     setRunning(false);
     if (initSim(gamma, beta, barrier, equation, speed)) buildChartData();
   }, [gamma, beta, barrier, equation, speed, initSim, buildChartData]);
@@ -330,12 +357,12 @@ export default function OPESSimulator() {
     if (isNaN(parseAndEvalMath(eqDraft, 0))) { setEqError('Ecuación inválida. Usa x como variable.'); return; }
     setEqError('');
     setEquation(eqDraft);
-    cancelAnimationFrame(animRef.current);
+    cancelAnimationFrame(rafRef.current);
     setRunning(false);
     if (initSim(gamma, beta, barrier, eqDraft, speed)) buildChartData();
   }, [eqDraft, gamma, beta, barrier, speed, initSim, buildChartData]);
 
-  useEffect(() => () => cancelAnimationFrame(animRef.current), []);
+  useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
 
   const SLIDERS = [
     { label: 'Bias Factor (γ)',     id: 'gamma',   val: gamma,   set: setGamma,   min: 1.1, max: 100, step: 0.1, color: 'cyan',    unit: '',             desc: 'Distribución objetivo más plana' },
@@ -481,9 +508,9 @@ export default function OPESSimulator() {
                     <YAxis tick={AX} label={{ value: 'E (kT)', angle: -90, position: 'insideLeft', offset: 15, fill: '#64748b', fontSize: 10 }} />
                     <Tooltip contentStyle={TT} formatter={v => v?.toFixed(3)} />
                     <Legend wrapperStyle={{ fontSize: 10, color: '#94a3b8' }} />
-                    <Line type="monotone" dataKey="trueFes"  name="True FES"  stroke={CC.trueFes}  dot={false} strokeWidth={2} />
-                    <Line type="monotone" dataKey="opesFes"  name="OPES FES"  stroke={CC.opesFes}  dot={false} strokeWidth={2} strokeDasharray="5 4" connectNulls={false} />
-                    <Line type="monotone" dataKey="particle" name="Particle"   stroke={CC.particle} dot={{ r: 5, fill: CC.particle, strokeWidth: 2, stroke: '#0f172a' }} connectNulls={false} />
+                    <Line type="monotone" dataKey="trueFes"  name="True FES"  stroke={CC.trueFes}  dot={false} strokeWidth={2} isAnimationActive={false} />
+                    <Line type="monotone" dataKey="opesFes"  name="OPES FES"  stroke={CC.opesFes}  dot={false} strokeWidth={2} strokeDasharray="5 4" connectNulls={false} isAnimationActive={true} animationDuration={40} animationEasing="linear" />
+                    <Line type="monotone" dataKey="particle" name="Particle"   stroke={CC.particle} dot={{ r: 5, fill: CC.particle, strokeWidth: 2, stroke: '#0f172a' }} connectNulls={false} isAnimationActive={true} animationDuration={40} animationEasing="linear" />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -499,7 +526,7 @@ export default function OPESSimulator() {
                     <YAxis tick={AX} label={{ value: 'V(s)', angle: -90, position: 'insideLeft', offset: 15, fill: '#64748b', fontSize: 10 }} />
                     <Tooltip contentStyle={TT} formatter={v => v?.toFixed(4)} />
                     <Legend wrapperStyle={{ fontSize: 10, color: '#94a3b8' }} />
-                    <Area type="monotone" dataKey="bias" name="Bias V(s)" stroke={CC.bias} fill="rgba(251,191,36,0.12)" strokeWidth={2} dot={false} />
+                    <Area type="monotone" dataKey="bias" name="Bias V(s)" stroke={CC.bias} fill="rgba(251,191,36,0.12)" strokeWidth={2} dot={false} isAnimationActive={false} />
                   </ComposedChart>
                 </ResponsiveContainer>
               </div>
@@ -515,8 +542,8 @@ export default function OPESSimulator() {
                     <YAxis tick={AX} label={{ value: 'P(ξ)', angle: -90, position: 'insideLeft', offset: 15, fill: '#64748b', fontSize: 10 }} />
                     <Tooltip contentStyle={TT} formatter={v => v?.toFixed(5)} />
                     <Legend wrapperStyle={{ fontSize: 10, color: '#94a3b8' }} />
-                    <Line type="monotone" dataKey="probTrue" name="True P(ξ)"     stroke={CC.probTrue} dot={false} strokeWidth={2} strokeDasharray="4 3" />
-                    <Line type="monotone" dataKey="probOpes" name="OPES Estimate"  stroke={CC.probOpes} dot={false} strokeWidth={2} />
+                    <Line type="monotone" dataKey="probTrue" name="True P(ξ)"     stroke={CC.probTrue} dot={false} strokeWidth={2} strokeDasharray="4 3" isAnimationActive={false} />
+                    <Line type="monotone" dataKey="probOpes" name="OPES Estimate"  stroke={CC.probOpes} dot={false} strokeWidth={2} isAnimationActive={false} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -532,9 +559,9 @@ export default function OPESSimulator() {
                     <YAxis tick={AX} />
                     <Tooltip contentStyle={TT} formatter={v => v?.toFixed(5)} />
                     <Legend wrapperStyle={{ fontSize: 10, color: '#94a3b8' }} />
-                    <Bar dataKey="hist"    name="Sampled Density"    fill="rgba(71,85,105,0.5)" radius={[2,2,0,0]} />
-                    <Line type="monotone" dataKey="target"  name="Target p^tg"     stroke={CC.target}  dot={false} strokeWidth={1.5} strokeDasharray="4 3" />
-                    <Line type="monotone" dataKey="biasedP" name="Inst. Biased P"  stroke={CC.biasedP} dot={false} strokeWidth={1.5} />
+                    <Bar dataKey="hist"    name="Sampled Density"    fill="rgba(71,85,105,0.5)" radius={[2,2,0,0]} isAnimationActive={false} />
+                    <Line type="monotone" dataKey="target"  name="Target p^tg"     stroke={CC.target}  dot={false} strokeWidth={1.5} strokeDasharray="4 3" isAnimationActive={false} />
+                    <Line type="monotone" dataKey="biasedP" name="Inst. Biased P"  stroke={CC.biasedP} dot={false} strokeWidth={1.5} isAnimationActive={false} />
                   </ComposedChart>
                 </ResponsiveContainer>
               </div>

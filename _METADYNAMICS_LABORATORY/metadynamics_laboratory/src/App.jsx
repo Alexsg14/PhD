@@ -4,6 +4,7 @@ import MetadynamicsLab from "./MetadynamicsLab";
 import MetadynamicsLab2D from "./MetadynamicsLab2D";
 import HillsVisualizer from "./HillsVisualizer";
 import OPESSimulator from "./OPESSimulator";
+import OpesVisualizer from "./OpesVisualizer";
 import {
   Activity,
   Layers,
@@ -12,11 +13,12 @@ import {
   Sliders,
   RefreshCw,
   RotateCcw,
-  Zap
+  Zap,
+  FileText
 } from "lucide-react";
 
 function App() {
-  const [simDimension, setSimDimension] = useState("OPES"); // "1D" | "2D" | "HILLS" | "OPES"
+  const [simDimension, setSimDimension] = useState("1D"); // "1D" | "2D" | "OPES" | "HILLS" | "OPES_INSPECTOR"
 
   // Shared state for HILLS visualizer configuration
   const [numBins, setNumBins] = useState(300);
@@ -80,73 +82,103 @@ function App() {
           </div>
 
           {/* Mode Switcher Vertical Button Group */}
-          <div className="space-y-2">
-            <div className="px-1 mb-1.5 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                Navigation Mode
-              </span>
+          <div className="space-y-4">
+            
+            {/* Section 1: METADYNAMICS */}
+            <div className="space-y-2">
+              <div className="px-1 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-cyan-400"></span>
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-cyan-400 font-mono">
+                  Metadynamics
+                </span>
+              </div>
+
+              <button
+                onClick={() => setSimDimension("1D")}
+                className={`w-full p-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-3 text-left ${
+                  simDimension === "1D"
+                    ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/25 border border-cyan-400/30"
+                    : "bg-slate-950/60 text-slate-400 hover:text-slate-200 hover:bg-slate-950 border border-slate-800/80"
+                }`}
+              >
+                <Activity size={17} className={simDimension === "1D" ? "text-white" : "text-cyan-400"} />
+                <div>
+                  <div>1D Simulator</div>
+                  <div className="text-[10px] font-normal opacity-75 font-mono mt-0.5">1 Collective Variable</div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => setSimDimension("2D")}
+                className={`w-full p-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-3 text-left ${
+                  simDimension === "2D"
+                    ? "bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-lg shadow-purple-500/25 border border-purple-400/30"
+                    : "bg-slate-950/60 text-slate-400 hover:text-slate-200 hover:bg-slate-950 border border-slate-800/80"
+                }`}
+              >
+                <Layers size={17} className={simDimension === "2D" ? "text-white" : "text-purple-400"} />
+                <div>
+                  <div>2D Simulator</div>
+                  <div className="text-[10px] font-normal opacity-75 font-mono mt-0.5">2 Collective Variables</div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => setSimDimension("HILLS")}
+                className={`w-full p-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-3 text-left ${
+                  simDimension === "HILLS"
+                    ? "bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/25 border border-emerald-400/30"
+                    : "bg-slate-950/60 text-slate-400 hover:text-slate-200 hover:bg-slate-950 border border-slate-800/80"
+                }`}
+              >
+                <BarChart2 size={17} className={simDimension === "HILLS" ? "text-white" : "text-emerald-400"} />
+                <div>
+                  <div>HILLS Inspector</div>
+                  <div className="text-[10px] font-normal opacity-75 font-mono mt-0.5">PLUMED 1D & 2D</div>
+                </div>
+              </button>
             </div>
 
-            <button
-              onClick={() => setSimDimension("1D")}
-              className={`w-full p-3 rounded-xl text-xs font-bold transition-all flex items-center gap-3 text-left ${
-                simDimension === "1D"
-                  ? "bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/25 border border-cyan-400/30"
-                  : "bg-slate-950/60 text-slate-400 hover:text-slate-200 hover:bg-slate-950 border border-slate-800/80"
-              }`}
-            >
-              <Activity size={18} className={simDimension === "1D" ? "text-white" : "text-cyan-400"} />
-              <div>
-                <div>1D Simulator</div>
-                <div className="text-[10px] font-normal opacity-75 font-mono mt-0.5">1 Collective Variable</div>
+            {/* Section 2: OPES METADYNAMICS */}
+            <div className="space-y-2 pt-2 border-t border-slate-800/60">
+              <div className="px-1 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-amber-400"></span>
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-400 font-mono">
+                  OPES Metadynamics
+                </span>
               </div>
-            </button>
 
-            <button
-              onClick={() => setSimDimension("2D")}
-              className={`w-full p-3 rounded-xl text-xs font-bold transition-all flex items-center gap-3 text-left ${
-                simDimension === "2D"
-                  ? "bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-lg shadow-purple-500/25 border border-purple-400/30"
-                  : "bg-slate-950/60 text-slate-400 hover:text-slate-200 hover:bg-slate-950 border border-slate-800/80"
-              }`}
-            >
-              <Layers size={18} className={simDimension === "2D" ? "text-white" : "text-purple-400"} />
-              <div>
-                <div>2D Simulator</div>
-                <div className="text-[10px] font-normal opacity-75 font-mono mt-0.5">2 Collective Variables</div>
-              </div>
-            </button>
+              <button
+                onClick={() => setSimDimension("OPES")}
+                className={`w-full p-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-3 text-left ${
+                  simDimension === "OPES"
+                    ? "bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-lg shadow-amber-500/25 border border-amber-400/30"
+                    : "bg-slate-950/60 text-slate-400 hover:text-slate-200 hover:bg-slate-950 border border-slate-800/80"
+                }`}
+              >
+                <Zap size={17} className={simDimension === "OPES" ? "text-white" : "text-amber-400"} />
+                <div>
+                  <div>OPES Simulator</div>
+                  <div className="text-[10px] font-normal opacity-75 font-mono mt-0.5">On-the-fly Prob. Sampling</div>
+                </div>
+              </button>
 
-            <button
-              onClick={() => setSimDimension("OPES")}
-              className={`w-full p-3 rounded-xl text-xs font-bold transition-all flex items-center gap-3 text-left ${
-                simDimension === "OPES"
-                  ? "bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-lg shadow-amber-500/25 border border-amber-400/30"
-                  : "bg-slate-950/60 text-slate-400 hover:text-slate-200 hover:bg-slate-950 border border-slate-800/80"
-              }`}
-            >
-              <Zap size={18} className={simDimension === "OPES" ? "text-white" : "text-amber-400"} />
-              <div>
-                <div>OPES Simulator</div>
-                <div className="text-[10px] font-normal opacity-75 font-mono mt-0.5">On-the-fly Prob. Sampling</div>
-              </div>
-            </button>
+              <button
+                onClick={() => setSimDimension("OPES_INSPECTOR")}
+                className={`w-full p-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-3 text-left ${
+                  simDimension === "OPES_INSPECTOR"
+                    ? "bg-gradient-to-r from-amber-600 to-orange-700 text-white shadow-lg shadow-amber-600/25 border border-amber-400/30"
+                    : "bg-slate-950/60 text-slate-400 hover:text-slate-200 hover:bg-slate-950 border border-slate-800/80"
+                }`}
+              >
+                <FileText size={17} className={simDimension === "OPES_INSPECTOR" ? "text-white" : "text-amber-400"} />
+                <div>
+                  <div>OPES Inspector</div>
+                  <div className="text-[10px] font-normal opacity-75 font-mono mt-0.5">PLUMED OPES_STATE</div>
+                </div>
+              </button>
+            </div>
 
-            <button
-              onClick={() => setSimDimension("HILLS")}
-              className={`w-full p-3 rounded-xl text-xs font-bold transition-all flex items-center gap-3 text-left ${
-                simDimension === "HILLS"
-                  ? "bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/25 border border-emerald-400/30"
-                  : "bg-slate-950/60 text-slate-400 hover:text-slate-200 hover:bg-slate-950 border border-slate-800/80"
-              }`}
-            >
-              <BarChart2 size={18} className={simDimension === "HILLS" ? "text-white" : "text-emerald-400"} />
-              <div>
-                <div>HILLS Inspector</div>
-                <div className="text-[10px] font-normal opacity-75 font-mono mt-0.5">PLUMED 1D & 2D</div>
-              </div>
-            </button>
           </div>
 
           {/* Footer Info inside left column sidebar */}
@@ -166,7 +198,7 @@ function App() {
             <MetadynamicsLab2D />
           ) : simDimension === "OPES" ? (
             <OPESSimulator />
-          ) : (
+          ) : simDimension === "HILLS" ? (
             <HillsVisualizer
               numBins={numBins}
               customBiasFactor={customBiasFactor}
@@ -191,6 +223,8 @@ function App() {
               hillsMetadata={hillsMetadata}
               onMetadataLoaded={setHillsMetadata}
             />
+          ) : (
+            <OpesVisualizer />
           )}
         </main>
 

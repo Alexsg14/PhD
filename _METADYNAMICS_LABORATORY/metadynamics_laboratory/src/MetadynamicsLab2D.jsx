@@ -595,6 +595,49 @@ const MetadynamicsLab2D = () => {
     ctx.fill();
     ctx.stroke();
 
+    // Draw CV1 (X) & CV2 (Y) Axis Tick Marks and Labels
+    ctx.font = 'bold 10px Inter, monospace';
+    const axisTicks = [-4.0, -2.0, 0, 2.0, 4.0];
+
+    // X Axis Ticks (CV1)
+    for (let tx of axisTicks) {
+      const cx = toCanvasX(tx);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+      ctx.fillRect(cx - 0.5, height - 8, 1, 8);
+      ctx.fillStyle = 'rgba(203, 213, 225, 0.85)';
+      ctx.textAlign = 'center';
+      ctx.fillText(tx > 0 ? `+${tx.toFixed(1)}` : `${tx.toFixed(1)}`, cx, height - 10);
+    }
+
+    // Y Axis Ticks (CV2)
+    for (let ty of axisTicks) {
+      const cy = toCanvasY(ty);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+      ctx.fillRect(0, cy - 0.5, 8, 1);
+      ctx.fillStyle = 'rgba(203, 213, 225, 0.85)';
+      ctx.textAlign = 'left';
+      ctx.fillText(ty > 0 ? `+${ty.toFixed(1)}` : `${ty.toFixed(1)}`, 10, cy + 4);
+    }
+
+    // CV1 Badge (Bottom Right)
+    ctx.font = 'bold 11px Inter, monospace';
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+    ctx.fillRect(width - 74, height - 26, 68, 20);
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.6)';
+    ctx.strokeRect(width - 74, height - 26, 68, 20);
+    ctx.fillStyle = '#38bdf8';
+    ctx.textAlign = 'center';
+    ctx.fillText('CV1 (x)', width - 40, height - 12);
+
+    // CV2 Badge (Top Left)
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+    ctx.fillRect(8, 8, 68, 20);
+    ctx.strokeStyle = 'rgba(192, 132, 252, 0.6)';
+    ctx.strokeRect(8, 8, 68, 20);
+    ctx.fillStyle = '#c084fc';
+    ctx.textAlign = 'center';
+    ctx.fillText('CV2 (y)', 42, 22);
+
   }, [timeStep, walkerPos, trajectory, canvasViewMode, wells, pesMode, pesFunctionStr, biasPotentials, isWellTempered, biasFactor]);
 
   // Click on Canvas to reposition walker
@@ -868,7 +911,7 @@ const MetadynamicsLab2D = () => {
         {/* Right Column: 2D Stage Canvas (8 cols) */}
         <div className="lg:col-span-8 flex flex-col space-y-3">
           
-          <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-2xl p-3 shadow-2xl flex flex-col h-[390px]">
+          <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-2xl p-3 shadow-2xl flex flex-col h-[460px]">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-1">
               <div>
                 <h3 className="font-bold text-slate-100 flex items-center gap-2 text-sm">
@@ -897,10 +940,10 @@ const MetadynamicsLab2D = () => {
             <div className="flex-1 flex items-center justify-center p-1 relative bg-slate-950 rounded-xl border border-slate-800 shadow-inner overflow-hidden">
               <canvas 
                 ref={canvasRef} 
-                width={500} 
-                height={300} 
+                width={560} 
+                height={380} 
                 onClick={handleCanvasClick}
-                className="rounded-lg shadow-xl cursor-crosshair max-w-full h-auto border border-slate-800/80"
+                className="rounded-lg shadow-xl cursor-crosshair max-w-full h-full object-contain border border-slate-800/80"
               />
             </div>
 
