@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OPES Interactive Simulator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css" integrity="sha384-GvrOXuhMATgEsSwCs4smul74iXGOixntILdUW9XmUC6+HX0sLNAK3q71bZl/Fikb" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js" integrity="sha384-cpW21T6RZ0BqBOqSc02tL/I0X0xK1A2GzZ4/Gvw/Z8R1B2wVv/8LwG7yv/LwR0rS" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <header class="app-header">
+            <div class="header-titles">
+                <h1>OPES 1D Simulator</h1>
+                <p>On-the-fly Probability Enhanced Sampling</p>
+            </div>
+            <div class="header-actions">
+                <button id="btn-toggle" class="btn btn-primary">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <span>Start Simulation</span>
+                </button>
+                <button id="btn-reset" class="btn btn-secondary">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                    <span>Reset</span>
+                </button>
+            </div>
+        </header>
+
+        <nav class="tabs">
+            <button id="tab-sim" class="tab-btn active">Simulation</button>
+            <button id="tab-theory" class="tab-btn">Theoretical Background</button>
+        </nav>
+
+        <div id="view-sim" class="tab-content active">
+
+        <section class="controls-panel card">
+            <div class="control-group function-group">
+                <div class="control-header">
+                    <label>True Energy Surface Equation E(x)</label>
+                </div>
+                <input type="text" id="input-equation" value="2.0 * (x^4 - 4*x^2 + 0.5*x) + 10.0" class="equation-input" placeholder="e.g. x^2 or sin(x)">
+                <p class="helper-text error-text" id="equation-error"></p>
+            </div>
+
+            <div class="control-group">
+                <div class="control-header">
+                    <label>Bias Factor (γ)</label>
+                    <input type="number" id="input-gamma" value="5.0" min="1.1" max="500" step="0.1">
+                </div>
+                <input type="range" id="slider-gamma" min="1.1" max="500" step="0.1" value="5.0">
+                <p class="helper-text">Target probability smoother</p>
+            </div>
+
+            <div class="control-group">
+                <div class="control-header">
+                    <label>Inverse Temp (β)</label>
+                    <input type="number" id="input-beta" value="1.0" min="0.1" max="3" step="0.1">
+                </div>
+                <input type="range" id="slider-beta" min="0.1" max="3" step="0.1" value="1.0">
+                <p class="helper-text">Affects thermal probability</p>
+            </div>
+
+            <div class="control-group">
+                <div class="control-header">
+                    <label>Energy Barrier (ΔE)</label>
+                    <input type="number" id="input-barrier" value="15.0" min="5" max="40" step="1">
+                </div>
+                <input type="range" id="slider-barrier" min="5" max="40" step="1" value="15.0">
+                <p class="helper-text">Limits bias potential</p>
+            </div>
+
+            <div class="control-group">
+                <div class="control-header">
+                    <label>Sim Speed</label>
+                    <input type="number" id="input-speed" value="50" min="1" max="200" step="5">
+                </div>
+                <input type="range" id="slider-speed" min="1" max="200" step="5" value="50">
+                <p class="helper-text">Steps per frame</p>
+            </div>
+        </section>
+
+                <section class="charts-grid">
+            <div class="chart-card card">
+                <h3>Free Energy Surface (FES)</h3>
+                <div class="canvas-container">
+                    <canvas id="chartFES"></canvas>
+                </div>
+            </div>
+            <div class="chart-card card">
+                <h3>Accumulated Bias V(s)</h3>
+                <div class="canvas-container">
+                    <canvas id="chartBias"></canvas>
+                </div>
+            </div>
+            <div class="chart-card card">
+                <h3>Probability Distribution</h3>
+                <div class="canvas-container">
+                    <canvas id="chartProb"></canvas>
+                </div>
+            </div>
+            <div class="chart-card card">
+                <h3>Trajectory & Biased Prob</h3>
+                <div class="canvas-container">
+                    <canvas id="chartTraj"></canvas>
+                </div>
+            </div>
+        </section>
+        </div>
+
+<div id="view-theory" class="tab-content" style="display: none;">
+            <section class="theory-panel card">
+                <h2>On-the-fly Probability Enhanced Sampling (OPES)</h2>
+                <div class="theory-content">
+                    <p>Let's introduce a new expression for the bias potential:</p>
+                    <div id="katex-eq1" class="katex-container"></div>
+                    
+                    <p>Such that it satisfies the condition that the biased probability matches the target probability:</p>
+                    <div id="katex-proof" class="katex-container"></div>
+
+                    <h3>Target Distribution</h3>
+                    <p>p<sup>tg</sup> is the new target distribution, that will be sampled once the method reaches convergence:</p>
+                    <div id="katex-eq2" class="katex-container"></div>
+                    <p>Where the bias factor &gamma; > 1 controls the flattening of the original probability density:</p>
+                    <ul class="theory-list">
+                        <li><strong>&gamma; = 1 &rArr;</strong> p<sup>tg</sup> = P(&xi;), the probability density remains unchanging.</li>
+                        <li><strong>&gamma; &rarr; &infin; &rArr;</strong> Flat target limit, uniform distribution where all states become equiprobable.</li>
+                        <li><strong>1 < &gamma; < &infin; &rArr;</strong> More flattened distribution, lowering the barriers without completely destroying the landscape.</li>
+                    </ul>
+
+                    <h3>Estimating the Probability (KDE)</h3>
+                    <p>In order to calculate the bias, we need to estimate P(&xi;) via reweighting. This is indeed a common way of reconstructing a probability, known as kernel density estimation (KDE):</p>
+                    <div id="katex-eq3" class="katex-container"></div>
+
+                    <h3>Explicit Bias</h3>
+                    <p>We can explicitly write the bias at the n-th step as:</p>
+                    <div id="katex-eq4" class="katex-container"></div>
+                    <ul class="theory-list">
+                        <li><strong>Z<sub>n</sub></strong> &rarr; Normalization term: <span id="katex-zn"></span></li>
+                        <li><strong>&epsilon;</strong> &rarr; Regularization term: <span id="katex-eps-code"></span></li>
+                    </ul>
+
+                    <div class="comparison-box">
+                        <div class="comparison-item">
+                            <h4>MetaD</h4>
+                            <p>Deposited Gaussians directly build the bias potential V<sub>n</sub>(&xi;).</p>
+                            <p>The reweighting process is performed over the full trajectory once converged.</p>
+                        </div>
+                        <div class="comparison-item">
+                            <h4>OPES</h4>
+                            <p>Deposited Gaussians reconstructs the &xi; probability distribution, P<sub>n</sub>(&xi;).</p>
+                            <p>The reweighting process is performed <strong>on-the-fly</strong> during the simulation.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+</body>
+</html>

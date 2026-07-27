@@ -619,10 +619,10 @@ const MetadynamicsLab2D = () => {
   const forceMag = Math.sqrt(currentForce.fx * currentForce.fx + currentForce.fy * currentForce.fy);
 
   return (
-    <div className="flex flex-col w-full max-w-7xl mx-auto space-y-6">
+    <div className="flex flex-col w-full space-y-3">
       
       {/* 2D Header Bar */}
-      <header className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-2xl p-5 shadow-2xl flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 relative overflow-hidden">
+      <header className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-2xl p-3 shadow-2xl flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 relative overflow-hidden">
         <div className="flex items-center gap-4 z-10">
           <div className="p-3 bg-gradient-to-br from-purple-500/20 to-indigo-600/20 border border-purple-500/30 rounded-xl text-purple-400 shadow-lg shadow-purple-500/10">
             <Layers size={28} className="animate-pulse" />
@@ -646,16 +646,16 @@ const MetadynamicsLab2D = () => {
           
           <div className="hidden sm:flex items-center gap-2 mr-2 bg-slate-950/80 px-3.5 py-1.5 rounded-xl border border-slate-800/80 text-xs">
             <div className="flex flex-col items-center px-2 border-r border-slate-800">
-              <span className="text-[10px] text-slate-500 uppercase font-semibold">Steps</span>
-              <span className="font-mono font-bold text-slate-200">{timeStep}</span>
+              <span className="text-[10px] text-white uppercase font-semibold">Steps</span>
+              <span className="font-mono font-bold text-white">{timeStep}</span>
             </div>
             <div className="flex flex-col items-center px-2 border-r border-slate-800">
-              <span className="text-[10px] text-slate-500 uppercase font-semibold">Hills</span>
+              <span className="text-[10px] text-white uppercase font-semibold">Hills</span>
               <span className="font-mono font-bold text-purple-400">{biasPotentials.length}</span>
             </div>
             <div className="flex flex-col items-center px-2">
-              <span className="text-[10px] text-slate-500 uppercase font-semibold">Height W(t)</span>
-              <span className="font-mono font-bold text-slate-200">{currentDepositionHeight.toFixed(3)}</span>
+              <span className="text-[10px] text-white uppercase font-semibold">Height W(t)</span>
+              <span className="font-mono font-bold text-white">{currentDepositionHeight.toFixed(3)}</span>
             </div>
           </div>
 
@@ -866,10 +866,10 @@ const MetadynamicsLab2D = () => {
         </div>
 
         {/* Right Column: 2D Stage Canvas (8 cols) */}
-        <div className="lg:col-span-8 flex flex-col space-y-4">
+        <div className="lg:col-span-8 flex flex-col space-y-3">
           
-          <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-2xl p-4 shadow-2xl flex flex-col min-h-[490px] h-[520px]">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-2">
+          <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-2xl p-3 shadow-2xl flex flex-col h-[390px]">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-1">
               <div>
                 <h3 className="font-bold text-slate-100 flex items-center gap-2 text-sm">
                   <Eye size={16} className="text-purple-400" /> 2D Energy Surface & Trajectory Heatmap
@@ -898,14 +898,14 @@ const MetadynamicsLab2D = () => {
               <canvas 
                 ref={canvasRef} 
                 width={500} 
-                height={425} 
+                height={300} 
                 onClick={handleCanvasClick}
                 className="rounded-lg shadow-xl cursor-crosshair max-w-full h-auto border border-slate-800/80"
               />
             </div>
 
             {/* Heatmap Legend Bar */}
-            <div className="mt-2 flex justify-between items-center text-[10px] text-slate-400 px-2 font-mono">
+            <div className="mt-1 flex justify-between items-center text-[10px] text-slate-400 px-2 font-mono">
               <span>Min Energy (Basin)</span>
               <div className="h-1.5 w-40 rounded-full bg-gradient-to-r from-slate-900 via-sky-600 via-emerald-500 via-amber-400 to-red-500"></div>
               <span>Max Energy (Barrier)</span>
@@ -913,8 +913,8 @@ const MetadynamicsLab2D = () => {
           </div>
 
           {/* 2D COLVAR Time-Series Chart Card */}
-          <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-2xl p-4 shadow-xl space-y-2">
-            <div className="flex justify-between items-center pb-1.5 border-b border-slate-800">
+          <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-2xl p-3 shadow-xl space-y-1">
+            <div className="flex justify-between items-center pb-1 border-b border-slate-800">
               <div>
                 <h3 className="font-bold text-slate-100 flex items-center gap-2 text-xs">
                   <Activity size={14} className="text-purple-400" />
@@ -927,9 +927,9 @@ const MetadynamicsLab2D = () => {
               </div>
             </div>
 
-            <div className="h-32 w-full">
+            <div className="h-48 w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={colvarHistory2D} margin={{ top: 5, right: 15, left: -15, bottom: 15 }}>
+                <LineChart data={colvarHistory2D} margin={{ top: 5, right: 20, left: 15, bottom: 22 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.3} />
                   <XAxis 
                     dataKey="step" 
@@ -974,22 +974,22 @@ const MetadynamicsLab2D = () => {
           </div>
 
           {/* Real-time 2D Dynamics Metric Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-2.5 shadow-lg">
-              <span className="text-[10px] text-slate-400 uppercase font-semibold block">Pos (x, y)</span>
-              <span className="font-mono text-base font-bold text-cyan-400">({walkerPos.x.toFixed(2)}, {walkerPos.y.toFixed(2)})</span>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-2 shadow-lg">
+              <span className="text-[10px] text-white uppercase font-semibold block">Pos (x, y)</span>
+              <span className="font-mono text-sm font-bold text-cyan-400">({walkerPos.x.toFixed(2)}, {walkerPos.y.toFixed(2)})</span>
             </div>
-            <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-2.5 shadow-lg">
-              <span className="text-[10px] text-slate-400 uppercase font-semibold block">PES V(x, y)</span>
-              <span className="font-mono text-base font-bold text-slate-200">{currentPES.toFixed(3)} <span className="text-[10px] text-slate-500">kJ/mol</span></span>
+            <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-2 shadow-lg">
+              <span className="text-[10px] text-white uppercase font-semibold block">PES V(x, y)</span>
+              <span className="font-mono text-sm font-bold text-slate-200">{currentPES.toFixed(3)} <span className="text-[10px] text-slate-400">kJ/mol</span></span>
             </div>
-            <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-2.5 shadow-lg">
-              <span className="text-[10px] text-slate-400 uppercase font-semibold block">Bias V<sub>B</sub>(x, y)</span>
-              <span className="font-mono text-base font-bold text-red-400">{currentBiasVal.toFixed(3)} <span className="text-[10px] text-slate-500">kJ/mol</span></span>
+            <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-2 shadow-lg">
+              <span className="text-[10px] text-white uppercase font-semibold block">Bias V<sub>B</sub>(x, y)</span>
+              <span className="font-mono text-sm font-bold text-red-400">{currentBiasVal.toFixed(3)} <span className="text-[10px] text-slate-400">kJ/mol</span></span>
             </div>
-            <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-2.5 shadow-lg">
-              <span className="text-[10px] text-slate-400 uppercase font-semibold block">Force Magnitude |F|</span>
-              <span className="font-mono text-base font-bold text-purple-400">{forceMag.toFixed(3)}</span>
+            <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-2 shadow-lg">
+              <span className="text-[10px] text-white uppercase font-semibold block">Force Magnitude |F|</span>
+              <span className="font-mono text-sm font-bold text-purple-400">{forceMag.toFixed(3)}</span>
             </div>
           </div>
 

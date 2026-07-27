@@ -521,10 +521,10 @@ const MetadynamicsLab = () => {
   const currentForce = getForce(walkerPos, biasPotentials, wells, pesMode, pesFunctionStr);
 
   return (
-    <div className="flex flex-col w-full max-w-7xl mx-auto space-y-6">
+    <div className="flex flex-col w-full space-y-3">
       
       {/* Top Header Card */}
-      <header className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-2xl p-5 shadow-2xl flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 relative overflow-hidden">
+      <header className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-2xl p-3 shadow-2xl flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 relative overflow-hidden">
         <div className="flex items-center gap-4 z-10">
           <div className="p-3 bg-gradient-to-br from-cyan-500/20 to-blue-600/20 border border-cyan-500/30 rounded-xl text-cyan-400 shadow-lg shadow-cyan-500/10">
             <Activity size={28} className="animate-pulse" />
@@ -550,16 +550,16 @@ const MetadynamicsLab = () => {
           {/* Quick Metrics */}
           <div className="hidden sm:flex items-center gap-2 mr-2 bg-slate-950/80 px-3.5 py-1.5 rounded-xl border border-slate-800/80 text-xs">
             <div className="flex flex-col items-center px-2 border-r border-slate-800">
-              <span className="text-[10px] text-slate-500 uppercase font-semibold">Steps</span>
-              <span className="font-mono font-bold text-slate-200">{timeStep}</span>
+              <span className="text-[10px] text-white uppercase font-semibold">Steps</span>
+              <span className="font-mono font-bold text-white">{timeStep}</span>
             </div>
             <div className="flex flex-col items-center px-2 border-r border-slate-800">
-              <span className="text-[10px] text-slate-500 uppercase font-semibold">Hills</span>
+              <span className="text-[10px] text-white uppercase font-semibold">Hills</span>
               <span className="font-mono font-bold text-cyan-400">{biasPotentials.length}</span>
             </div>
             <div className="flex flex-col items-center px-2">
-              <span className="text-[10px] text-slate-500 uppercase font-semibold">Height W(t)</span>
-              <span className={`font-mono font-bold ${isWellTempered && currentDepositionHeight < 0.05 ? 'text-amber-400' : 'text-slate-200'}`}>
+              <span className="text-[10px] text-white uppercase font-semibold">Height W(t)</span>
+              <span className={`font-mono font-bold ${isWellTempered && currentDepositionHeight < 0.05 ? 'text-amber-400' : 'text-white'}`}>
                 {currentDepositionHeight.toFixed(3)}
               </span>
             </div>
@@ -878,8 +878,8 @@ const MetadynamicsLab = () => {
         <div className="lg:col-span-8 flex flex-col space-y-4">
           
           {/* Main Stage Chart Container */}
-          <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-2xl p-4 shadow-2xl flex flex-col min-h-[490px] h-[520px] relative">
-            <div className="flex justify-between items-center mb-2">
+          <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-2xl p-3 shadow-2xl flex flex-col h-[415px] relative">
+            <div className="flex justify-between items-center mb-1">
               <div>
                 <h3 className="font-bold text-slate-100 flex items-center gap-2 text-sm">
                   <TrendingUp size={16} className="text-cyan-400" /> 
@@ -898,9 +898,9 @@ const MetadynamicsLab = () => {
             </div>
 
             {/* Recharts Canvas */}
-            <div className="flex-1 w-full min-h-[430px]">
+            <div className="flex-1 w-full min-h-[330px]">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData} margin={{ top: 10, right: 20, left: -10, bottom: 15 }}>
+                <LineChart data={chartData} margin={{ top: 10, right: 25, left: 15, bottom: 25 }}>
                   <defs>
                     <linearGradient id="biasGradient" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#ef4444" stopOpacity={0.25}/>
@@ -988,8 +988,8 @@ const MetadynamicsLab = () => {
           </div>
 
           {/* COLVAR Time-Series Chart Card */}
-          <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-2xl p-4 shadow-xl space-y-2">
-            <div className="flex justify-between items-center pb-1.5 border-b border-slate-800">
+          <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-2xl p-3 shadow-xl space-y-1">
+            <div className="flex justify-between items-center pb-1 border-b border-slate-800">
               <div>
                 <h3 className="font-bold text-slate-100 flex items-center gap-2 text-xs">
                   <Activity size={14} className="text-cyan-400" />
@@ -1001,9 +1001,9 @@ const MetadynamicsLab = () => {
               </span>
             </div>
 
-            <div className="h-32 w-full">
+            <div className="h-48 w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={colvarHistory} margin={{ top: 5, right: 15, left: -15, bottom: 15 }}>
+                <LineChart data={colvarHistory} margin={{ top: 5, right: 20, left: 15, bottom: 22 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.3} />
                   <XAxis 
                     dataKey="step" 
@@ -1038,22 +1038,22 @@ const MetadynamicsLab = () => {
           </div>
 
           {/* Real-time Dynamics Metric Cards Below Chart */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-2.5 shadow-lg">
-              <span className="text-[10px] text-slate-400 uppercase font-semibold block">Walker Pos (x)</span>
-              <span className="font-mono text-base font-bold text-cyan-400">{walkerPos.toFixed(3)}</span>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-2 shadow-lg">
+              <span className="text-[10px] text-white uppercase font-semibold block">Walker Pos (x)</span>
+              <span className="font-mono text-sm font-bold text-cyan-400">{walkerPos.toFixed(3)}</span>
             </div>
-            <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-2.5 shadow-lg">
-              <span className="text-[10px] text-slate-400 uppercase font-semibold block">PES Energy V(x)</span>
-              <span className="font-mono text-base font-bold text-slate-200">{currentPES.toFixed(3)} <span className="text-[10px] text-slate-500">kJ/mol</span></span>
+            <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-2 shadow-lg">
+              <span className="text-[10px] text-white uppercase font-semibold block">PES Energy V(x)</span>
+              <span className="font-mono text-sm font-bold text-slate-200">{currentPES.toFixed(3)} <span className="text-[10px] text-slate-400">kJ/mol</span></span>
             </div>
-            <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-2.5 shadow-lg">
-              <span className="text-[10px] text-slate-400 uppercase font-semibold block">Bias Energy V<sub>B</sub>(x)</span>
-              <span className="font-mono text-base font-bold text-red-400">{currentBiasVal.toFixed(3)} <span className="text-[10px] text-slate-500">kJ/mol</span></span>
+            <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-2 shadow-lg">
+              <span className="text-[10px] text-white uppercase font-semibold block">Bias Energy V<sub>B</sub>(x)</span>
+              <span className="font-mono text-sm font-bold text-red-400">{currentBiasVal.toFixed(3)} <span className="text-[10px] text-slate-400">kJ/mol</span></span>
             </div>
-            <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-2.5 shadow-lg">
-              <span className="text-[10px] text-slate-400 uppercase font-semibold block">Net Force (-∇V)</span>
-              <span className="font-mono text-base font-bold text-emerald-400">{currentForce.toFixed(3)}</span>
+            <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-2 shadow-lg">
+              <span className="text-[10px] text-white uppercase font-semibold block">Net Force (-∇V)</span>
+              <span className="font-mono text-sm font-bold text-emerald-400">{currentForce.toFixed(3)}</span>
             </div>
           </div>
 

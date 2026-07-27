@@ -1075,18 +1075,223 @@ function Canvas2DHeatmap({
   );
 }
 
+// --- HILLS Inspector Parameters Control Panel ---
+function HillsControlPanel({
+  energyRefMode,
+  setEnergyRefMode,
+  isWtScaling,
+  setIsWtScaling,
+  inputNumBins,
+  setInputNumBins,
+  inputCustomBias,
+  setInputCustomBias,
+  energyUnits,
+  setEnergyUnits,
+  inputGridMin,
+  setInputGridMin,
+  inputGridMax,
+  setInputGridMax,
+  handleApplyGridParams,
+  handleResetGridBounds,
+  hillsMetadata
+}) {
+  return (
+    <div className="flex flex-col space-y-4 font-sans text-slate-100">
+      {/* Energy Display Mode Card */}
+      <div className="bg-slate-950/80 border border-slate-800/90 rounded-xl p-3.5 space-y-2.5">
+        <h3 className="font-bold text-[11px] uppercase tracking-wider text-slate-300 flex items-center gap-2 border-b border-slate-800/80 pb-2">
+          <Sliders size={14} className="text-indigo-400" />
+          Energy Display Mode
+        </h3>
+
+        <div className="space-y-2 text-xs">
+          <label className="flex items-start justify-between p-2 bg-slate-900 rounded-lg border border-slate-800 cursor-pointer hover:border-slate-700 transition-all gap-2">
+            <div>
+              <div className="font-semibold text-slate-200 text-[11px]">Bulk Plateau Reference [F(bulk) = 0]</div>
+              <div className="text-[9px] text-slate-400 mt-0.5 leading-tight">
+                Sets bulk solvent energy to 0, minimum well depth is -ΔG
+              </div>
+            </div>
+            <input
+              type="radio"
+              name="energyRefModeVisualizer"
+              checked={energyRefMode === "plateauZero"}
+              onChange={() => setEnergyRefMode && setEnergyRefMode("plateauZero")}
+              className="accent-indigo-500 mt-1"
+            />
+          </label>
+
+          <label className="flex items-start justify-between p-2 bg-slate-900 rounded-lg border border-slate-800 cursor-pointer hover:border-slate-700 transition-all gap-2">
+            <div>
+              <div className="font-semibold text-slate-200 text-[11px]">Relative to Minimum [F(min) = 0]</div>
+              <div className="text-[9px] text-slate-400 mt-0.5 leading-tight">
+                Sets minimum bound well to 0, bulk plateau is +ΔG
+              </div>
+            </div>
+            <input
+              type="radio"
+              name="energyRefModeVisualizer"
+              checked={energyRefMode === "minZero"}
+              onChange={() => setEnergyRefMode && setEnergyRefMode("minZero")}
+              className="accent-indigo-500 mt-1"
+            />
+          </label>
+
+          <label className="flex items-start justify-between p-2 bg-slate-900 rounded-lg border border-slate-800 cursor-pointer hover:border-slate-700 transition-all gap-2">
+            <div>
+              <div className="font-semibold text-slate-200 text-[11px]">Direct Absolute Potential [F(s) = -V(s)]</div>
+              <div className="text-[9px] text-slate-400 mt-0.5 leading-tight">
+                Raw unshifted cumulative bias potential
+              </div>
+            </div>
+            <input
+              type="radio"
+              name="energyRefModeVisualizer"
+              checked={energyRefMode === "raw"}
+              onChange={() => setEnergyRefMode && setEnergyRefMode("raw")}
+              className="accent-indigo-500 mt-1"
+            />
+          </label>
+        </div>
+
+        <div className="pt-1">
+          <label className="flex items-center justify-between p-2 bg-slate-900 rounded-lg border border-slate-800 cursor-pointer hover:border-slate-700 transition-all text-xs">
+            <span className="font-semibold text-slate-300 text-[10px]">
+              Well-Tempered Scaling Factor [γ/(γ-1)]
+            </span>
+            <input
+              type="checkbox"
+              checked={isWtScaling}
+              onChange={(e) => setIsWtScaling && setIsWtScaling(e.target.checked)}
+              className="accent-indigo-500 rounded"
+            />
+          </label>
+        </div>
+      </div>
+
+      {/* Grid & Calculation Settings Form */}
+      <form onSubmit={handleApplyGridParams} className="bg-slate-950/80 border border-slate-800/90 rounded-xl p-3.5 space-y-2.5 flex flex-col justify-between">
+        <div>
+          <h3 className="font-bold text-[11px] uppercase tracking-wider text-slate-300 flex items-center gap-2 border-b border-slate-800/80 pb-2 mb-2">
+            <Sliders size={14} className="text-indigo-400" />
+            FES Grid Parameters
+          </h3>
+
+          <div className="flex flex-col space-y-2">
+            {!hillsMetadata?.is2D && (
+              <div>
+                <label className="block text-[10px] text-slate-400 mb-0.5 font-medium">
+                  Grid Resolution (Bins):
+                </label>
+                <input
+                  type="number"
+                  min="50"
+                  max="1000"
+                  value={inputNumBins}
+                  onChange={(e) => setInputNumBins && setInputNumBins(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-cyan-300 font-mono focus:ring-2 focus:ring-indigo-500 outline-none"
+                />
+              </div>
+            )}
+
+            <div>
+              <label className="block text-[10px] text-slate-400 mb-0.5 font-medium">
+                Bias Factor (γ):
+              </label>
+              <input
+                type="text"
+                placeholder={`Detected: ${hillsMetadata?.effectiveBiasFactor ?? 60}`}
+                value={inputCustomBias}
+                onChange={(e) => setInputCustomBias && setInputCustomBias(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-indigo-300 font-mono focus:ring-2 focus:ring-indigo-500 outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] text-slate-400 mb-0.5 font-medium">
+                Energy Units:
+              </label>
+              <select
+                value={energyUnits}
+                onChange={(e) => setEnergyUnits && setEnergyUnits(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 outline-none"
+              >
+                <option value="kJ/mol">kJ/mol</option>
+                <option value="kcal/mol">kcal/mol</option>
+              </select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 pt-0.5">
+              <div>
+                <label className="block text-[9px] text-slate-400 mb-0.5 font-medium">Min CV1:</label>
+                <input
+                  type="text"
+                  placeholder="Auto"
+                  value={inputGridMin}
+                  onChange={(e) => setInputGridMin && setInputGridMin(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-slate-300 font-mono"
+                />
+              </div>
+              <div>
+                <label className="block text-[9px] text-slate-400 mb-0.5 font-medium">Max CV1:</label>
+                <input
+                  type="text"
+                  placeholder="Auto"
+                  value={inputGridMax}
+                  onChange={(e) => setInputGridMax && setInputGridMax(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-slate-300 font-mono"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex gap-2 pt-3">
+          <button
+            type="submit"
+            className="flex-1 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-md"
+          >
+            <RefreshCw size={14} /> Apply Parameters
+          </button>
+
+          <button
+            type="button"
+            onClick={handleResetGridBounds}
+            className="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-slate-400 border border-slate-800 rounded-xl text-xs font-semibold"
+            title="Reset Bounds"
+          >
+            <RotateCcw size={14} />
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 function HillsVisualizerInner({
   numBins = 300,
   customBiasFactor = "",
   gridMinUser = "",
   gridMaxUser = "",
   energyUnits = "kJ/mol",
+  setEnergyUnits,
   energyRefMode = "plateauZero",
+  setEnergyRefMode,
   isWtScaling = true,
+  setIsWtScaling,
+  inputNumBins = "300",
+  setInputNumBins,
+  inputCustomBias = "",
+  setInputCustomBias,
+  inputGridMin = "",
+  setInputGridMin,
+  inputGridMax = "",
+  setInputGridMax,
+  handleApplyGridParams: propApplyGridParams,
+  handleResetGridBounds: propResetGridBounds,
+  hillsMetadata,
   setGridMinUser,
   setGridMaxUser,
-  setInputGridMin,
-  setInputGridMax,
   onMetadataLoaded
 }) {
   const [hillsData, setHillsData] = useState(null);
@@ -1112,6 +1317,14 @@ function HillsVisualizerInner({
   const activeFileRef = useRef(null);
   const currentFileNameRef = useRef("");
   const isMounting = useRef(true);
+
+  const handleResetGridBounds = propResetGridBounds || (() => {
+    if (setInputGridMin) setInputGridMin("");
+    if (setInputGridMax) setInputGridMax("");
+    if (setGridMinUser) setGridMinUser("");
+    if (setGridMaxUser) setGridMaxUser("");
+  });
+  const handleApplyGridParams = propApplyGridParams || ((e) => e?.preventDefault());
 
   // Mouse Drag Zoom Handlers
   const handleMouseDown = (e) => {
@@ -1145,13 +1358,6 @@ function HillsVisualizerInner({
     }
     setRefAreaLeft("");
     setRefAreaRight("");
-  };
-
-  const handleResetGridBounds = () => {
-    if (setInputGridMin) setInputGridMin("");
-    if (setInputGridMax) setInputGridMax("");
-    if (setGridMinUser) setGridMinUser("");
-    if (setGridMaxUser) setGridMaxUser("");
   };
 
   // Drag and Drop Handlers
@@ -1586,32 +1792,61 @@ function HillsVisualizerInner({
         </div>
       )}
 
-      {/* EMPTY STATE PLACEHOLDER (When no HILLS file is loaded) */}
-      {!hillsData && !isLoading && (
-        <div className="bg-slate-900/90 backdrop-blur-xl border-2 border-dashed border-slate-800 hover:border-indigo-500/50 rounded-3xl p-12 text-center flex flex-col items-center justify-center space-y-6 shadow-2xl transition-all my-8">
-          <div className="p-5 bg-gradient-to-br from-indigo-500/20 to-purple-600/20 border border-indigo-500/30 rounded-2xl text-indigo-400 shadow-xl shadow-indigo-500/10">
-            <Upload size={48} className="animate-pulse" />
-          </div>
-          <div className="max-w-md space-y-2">
-            <h2 className="text-xl font-extrabold text-white">HILLS File Visualizer (PLUMED 1D & 2D)</h2>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              Drag your <code className="text-cyan-300 bg-slate-950 px-1.5 py-0.5 rounded font-mono">HILLS</code> file (1D or 2D) directly onto this window or click the button below to select it from your computer.
-            </p>
-          </div>
-
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="py-3 px-6 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-2xl text-xs font-bold flex items-center gap-2.5 transition-all shadow-xl shadow-indigo-600/25 hover:scale-105"
-          >
-            <Upload size={18} />
-            <span>Select HILLS File</span>
-          </button>
+      {/* Main 2-Column Inspector Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        
+        {/* Column 2 (Adjacent to main sidebar): HILLS Inspector Options & Parameters */}
+        <div className="lg:col-span-3 space-y-4">
+          <HillsControlPanel
+            energyRefMode={energyRefMode}
+            setEnergyRefMode={setEnergyRefMode}
+            isWtScaling={isWtScaling}
+            setIsWtScaling={setIsWtScaling}
+            inputNumBins={inputNumBins}
+            setInputNumBins={setInputNumBins}
+            inputCustomBias={inputCustomBias}
+            setInputCustomBias={setInputCustomBias}
+            energyUnits={energyUnits}
+            setEnergyUnits={setEnergyUnits}
+            inputGridMin={inputGridMin}
+            setInputGridMin={setInputGridMin}
+            inputGridMax={inputGridMax}
+            setInputGridMax={setInputGridMax}
+            handleApplyGridParams={handleApplyGridParams}
+            handleResetGridBounds={handleResetGridBounds}
+            hillsMetadata={hillsMetadata}
+          />
         </div>
-      )}
 
-      {/* Key Metrics Cards Dashboard */}
-      {stats && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        {/* Column 3 (Rest of the screen): File Upload Dropzone / Visualizer Content */}
+        <div className="lg:col-span-9 space-y-4">
+          
+          {/* EMPTY STATE PLACEHOLDER (When no HILLS file is loaded) */}
+          {!hillsData && !isLoading && (
+            <div className="bg-slate-900/90 backdrop-blur-xl border-2 border-dashed border-slate-800 hover:border-indigo-500/50 rounded-3xl p-12 text-center flex flex-col items-center justify-center space-y-6 shadow-2xl transition-all">
+              <div className="p-5 bg-gradient-to-br from-indigo-500/20 to-purple-600/20 border border-indigo-500/30 rounded-2xl text-indigo-400 shadow-xl shadow-indigo-500/10">
+                <Upload size={48} className="animate-pulse" />
+              </div>
+              <div className="max-w-md space-y-2">
+                <h2 className="text-xl font-extrabold text-white">HILLS File Visualizer (PLUMED 1D & 2D)</h2>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Drag your <code className="text-cyan-300 bg-slate-950 px-1.5 py-0.5 rounded font-mono">HILLS</code> file (1D or 2D) directly onto this window or click the button below to select it from your computer.
+                </p>
+              </div>
+
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="py-3 px-6 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-2xl text-xs font-bold flex items-center gap-2.5 transition-all shadow-xl shadow-indigo-600/25 hover:scale-105"
+              >
+                <Upload size={18} />
+                <span>Select HILLS File</span>
+              </button>
+            </div>
+          )}
+
+          {/* Key Metrics Cards Dashboard */}
+          {stats && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           
           <div className="bg-slate-900/80 border border-slate-800/80 rounded-xl p-3.5 shadow-md flex flex-col justify-between">
             <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider flex items-center gap-1.5">
@@ -1794,9 +2029,56 @@ function HillsVisualizerInner({
             </div>
           </div>
 
-          {/* MASSIVE FULL-WIDTH 1D AreaChart vs 2D Heatmap Canvas */}
+          {/* Time Trajectory Progress Slider with Smooth REAL-TIME PLAY / PAUSE */}
+          <div className="bg-slate-950/80 border border-slate-800/80 p-3 rounded-xl space-y-2">
+            <div className="flex justify-between items-center text-xs">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setIsPlayingTime(!isPlayingTime)}
+                  className={`py-1 px-3 rounded-lg font-bold text-xs shadow-md flex items-center gap-1.5 transition-all ${
+                    isPlayingTime
+                      ? "bg-amber-500 text-slate-950 hover:bg-amber-400 shadow-amber-500/20"
+                      : "bg-emerald-500 text-slate-950 hover:bg-emerald-400 shadow-emerald-500/20"
+                  }`}
+                >
+                  {isPlayingTime ? <><Pause size={13} /> PAUSE</> : <><Play size={13} /> PLAY</>}
+                </button>
+
+                <button
+                  onClick={() => setTimeStepProgress(0)}
+                  className="p-1.5 bg-slate-900 hover:bg-slate-800 text-slate-400 rounded-lg border border-slate-800"
+                  title="Reset to 0% (Flat t=0)"
+                >
+                  <RotateCcw size={13} />
+                </button>
+              </div>
+
+              <span className="font-mono text-cyan-400 font-bold text-xs">
+                {timeStepProgress}% (t = {currentFrameData.sampleTime.toFixed(1)} ps • {currentFrameData.activeHillsCount} hills)
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={timeStepProgress}
+                onChange={(e) => setTimeStepProgress(parseInt(e.target.value))}
+                className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+              />
+            </div>
+
+            <div className="flex justify-between text-[10px] text-slate-500 font-mono">
+              <span>0 ps (0% - Flat)</span>
+              <span>50%</span>
+              <span>{hillsData.timeRange[1].toFixed(0)} ps (End)</span>
+            </div>
+          </div>
+
+          {/* FULL-WIDTH 1D AreaChart vs 2D Heatmap Canvas */}
           {!hillsData.is2D ? (
-            <div className="h-[520px] w-full pt-2 select-none">
+            <div className="h-[340px] w-full pt-1 select-none">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart
                   data={currentFrameData.gridPoints}
@@ -1896,53 +2178,6 @@ function HillsVisualizerInner({
               colorPalette={colorPalette}
             />
           )}
-
-          {/* Time Trajectory Progress Slider with Smooth REAL-TIME PLAY / PAUSE */}
-          <div className="bg-slate-950/80 border border-slate-800/80 p-4 rounded-xl space-y-3">
-            <div className="flex justify-between items-center text-xs">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setIsPlayingTime(!isPlayingTime)}
-                  className={`py-1.5 px-3.5 rounded-xl font-bold text-xs shadow-md flex items-center gap-1.5 transition-all ${
-                    isPlayingTime
-                      ? "bg-amber-500 text-slate-950 hover:bg-amber-400 shadow-amber-500/20"
-                      : "bg-emerald-500 text-slate-950 hover:bg-emerald-400 shadow-emerald-500/20"
-                  }`}
-                >
-                  {isPlayingTime ? <><Pause size={14} /> PAUSE</> : <><Play size={14} /> PLAY</>}
-                </button>
-
-                <button
-                  onClick={() => setTimeStepProgress(0)}
-                  className="p-1.5 bg-slate-900 hover:bg-slate-800 text-slate-400 rounded-lg border border-slate-800"
-                  title="Reset to 0% (Flat t=0)"
-                >
-                  <RotateCcw size={14} />
-                </button>
-              </div>
-
-              <span className="font-mono text-cyan-400 font-bold text-xs">
-                {timeStepProgress}% (t = {currentFrameData.sampleTime.toFixed(1)} ps • {currentFrameData.activeHillsCount} hills)
-              </span>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <input
-                type="range"
-                min="0"
-                max="100"
-                value={timeStepProgress}
-                onChange={(e) => setTimeStepProgress(parseInt(e.target.value))}
-                className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-              />
-            </div>
-
-            <div className="flex justify-between text-[10px] text-slate-500 font-mono">
-              <span>0 ps (0% - Flat)</span>
-              <span>50%</span>
-              <span>{hillsData.timeRange[1].toFixed(0)} ps (End)</span>
-            </div>
-          </div>
 
         </div>
       )}
@@ -2061,6 +2296,8 @@ function HillsVisualizerInner({
         </div>
       )}
 
+        </div>
+      </div>
     </div>
   );
 }
