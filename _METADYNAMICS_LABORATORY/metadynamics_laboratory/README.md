@@ -1,16 +1,66 @@
-# React + Vite
+# Metadynamics & OPES Laboratory Web Application
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+[![React 19](https://img.shields.io/badge/React-19-blue.svg)](https://react.dev/)
+[![Vite 7](https://img.shields.io/badge/Vite-7-purple.svg)](https://vitejs.dev/)
+[![Tailwind CSS 3](https://img.shields.io/badge/TailwindCSS-3-38bdf8.svg)](https://tailwindcss.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Currently, two official plugins are available:
+Interactive React web application for **1D & 2D Metadynamics**, **OPES (On-the-fly Probability Enhanced Sampling)**, and **PLUMED File Analysis (HILLS & KERNELS Inspector)**.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+---
 
-## React Compiler
+## ⚡ Quick Start
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### 1. Install Dependencies
+```bash
+npm install
+```
 
-## Expanding the ESLint configuration
+### 2. Start Development Server
+```bash
+npm run dev
+```
+Open your browser at `http://localhost:5173`.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+### 3. Build for Production
+```bash
+npm run build
+```
+The optimized bundle will be compiled into the `dist/` directory.
+
+---
+
+## 🚀 Key Modules
+
+1. **🧪 1D Metadynamics Simulator (`1D`)**:
+   - Langevin dynamics in 1D ($CV_x$) with Standard & Well-Tempered Metadynamics (WT-MetaD).
+   - Interactive Gaussian wells editor, custom mathematical functions $V(x)$, PRNG seed lock, and session JSON save/restore.
+
+2. **🌐 2D Metadynamics Simulator (`2D`)**:
+   - 2D Langevin dynamics over collective variables $(CV_x, CV_y)$.
+   - High-performance HTML5 Canvas heatmap renderer ($V$, $V+V_B$, $V_B$, $F_{\text{est}}$) with Inferno, Viridis, Spectral, Plasma, and Coolwarm colormaps.
+   - Interactive particle clicking & trajectory path tracing.
+
+3. **⚡ OPES 1D Simulator (`OPES`)**:
+   - On-the-Fly Probability Enhanced Sampling simulation.
+   - Live probability distribution $P(s)$, bias potential $V(s)$, and Free Energy $F(s)$ reconstruction.
+   - Interactive parameters for barrier estimation, kernel pace, initial bandwidth, and target distributions.
+
+4. **📈 PLUMED HILLS Visualizer & Inspector (`HILLS`)**:
+   - Offloads file parsing and grid math to a background Web Worker.
+   - 60 FPS real-time animated timeline of FES reconstruction $F(s, t)$.
+   - Drag & drop loader, plateau zero & min zero reference modes, convergence overlay analysis, and `fes.dat` export.
+
+5. **🔍 PLUMED OPES Inspector (`OPES_INSPECTOR`)**:
+   - Parses PLUMED `KERNELS` / `OPES_STATE` files.
+   - Analyzes kernel expansion, weights, centers, and width evolution.
+   - Real-time playback timeline scrubbing and one-click `fes.dat` export.
+
+---
+
+## 🛠️ Project Scripts
+
+- `npm run dev` - Launch local dev server with HMR.
+- `npm run build` - Compile production bundle.
+- `npm run lint` - Run ESLint.
+- `npm run preview` - Preview production build locally.
