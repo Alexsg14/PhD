@@ -993,8 +993,8 @@ function Canvas2DHeatmap({
 
     const padLeft = 60;
     const padRight = 145; // 80px for right 1D plot + 15px gap + 14px colorbar + text
-    const padTop = 95;    // 75px for top 1D plot + 20px margin
-    const padBottom = 45;
+    const padTop = 90;    // 70px for top 1D plot + 20px margin
+    const padBottom = 58; // Ample clearance for X axis ticks & title
 
     const plotW = width - padLeft - padRight;
     const plotH = height - padTop - padBottom;
@@ -1122,7 +1122,7 @@ function Canvas2DHeatmap({
 
     ctx.fillStyle = "#f1f5f9";
     ctx.font = "bold 12px Inter, sans-serif";
-    ctx.fillText(`${cvNames[0] || "CV1"} Coordinate`, padLeft + plotW / 2, height - 8);
+    ctx.fillText(`${cvNames[0] || "CV1"} Coordinate`, padLeft + plotW / 2, height - 12);
 
     // Y Axis Ticks & Grid
     ctx.textAlign = "right";
@@ -1281,24 +1281,63 @@ function Canvas2DHeatmap({
         ctx.stroke();
       }
     }
-  }, [frameData, energyRefMode, energyUnits, cvNames, hills, colorPalette, showTrajectory, projMode]);
+
+    // --- 6. INTERACTIVE HOVER CROSSHAIR & TARGET DOT ---
+    if (hoverInfo && hoverInfo.canvasX >= padLeft && hoverInfo.canvasX <= padLeft + plotW &&
+        hoverInfo.canvasY >= padTop && hoverInfo.canvasY <= padTop + plotH) {
+      const hx = hoverInfo.canvasX;
+      const hy = hoverInfo.canvasY;
+
+      // Vertical crosshair (Top 1D plot through Heatmap)
+      ctx.strokeStyle = "rgba(56, 189, 248, 0.5)";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(hx, 12);
+      ctx.lineTo(hx, padTop + plotH);
+      ctx.stroke();
+
+      // Horizontal crosshair (Heatmap into Right 1D plot)
+      ctx.strokeStyle = "rgba(192, 132, 252, 0.5)";
+      ctx.beginPath();
+      ctx.moveTo(padLeft, hy);
+      ctx.lineTo(padLeft + plotW + 87, hy);
+      ctx.stroke();
+      ctx.setLineDash([]); // reset line dash
+
+      // Target Dot at exact mouse location
+      ctx.beginPath();
+      ctx.arc(hx, hy, 5, 0, Math.PI * 2);
+      ctx.fillStyle = "#00f0ff";
+      ctx.shadowColor = "#00f0ff";
+      ctx.shadowBlur = 12;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+  }, [frameData, energyRefMode, energyUnits, cvNames, hills, colorPalette, showTrajectory, projMode, hoverInfo]);
 
   const handleMouseMove = (e) => {
     if (!canvasRef.current || !frameData || !frameData.grid2DFlat) return;
     const rect = canvasRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const scaleX = canvasRef.current.width / rect.width;
+    const scaleY = canvasRef.current.height / rect.height;
+
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
 
     const padLeft = 60;
     const padRight = 145;
-    const padTop = 95;
-    const padBottom = 45;
+    const padTop = 90;
+    const padBottom = 58;
     const width = canvasRef.current.width;
     const height = canvasRef.current.height;
     const plotW = width - padLeft - padRight;
     const plotH = height - padTop - padBottom;
 
-    if (x < padLeft || x > width - padRight || y < padTop || y > height - padBottom) {
+    if (x < padLeft || x > padLeft + plotW || y < padTop || y > padTop + plotH) {
       setHoverInfo(null);
       return;
     }
@@ -1306,7 +1345,7 @@ function Canvas2DHeatmap({
     const { numBinsX, numBinsY, gridMin1, gridMax1, gridMin2, gridMax2, grid2DFlat, projCV1, projCV2 } = frameData;
 
     const normX = (x - padLeft) / plotW;
-    const normY = (height - padBottom - y) / plotH;
+    const normY = (padTop + plotH - y) / plotH;
 
     const cv1Val = gridMin1 + normX * (gridMax1 - gridMin1);
     const cv2Val = gridMin2 + normY * (gridMax2 - gridMin2);
@@ -1323,8 +1362,8 @@ function Canvas2DHeatmap({
     const proj2Val = projCV2 && projCV2[binJ] ? projCV2[binJ][modeKey] : null;
 
     setHoverInfo({
-      x,
-      y,
+      canvasX: x,
+      canvasY: y,
       cv1: cv1Val.toFixed(3),
       cv2: cv2Val.toFixed(3),
       fes: fesVal,
@@ -1440,20 +1479,11 @@ function Canvas2DHeatmap({
         <canvas
           ref={canvasRef}
           width={860}
-          height={460}
+          height={480}
           onMouseMove={handleMouseMove}
           onMouseLeave={() => setHoverInfo(null)}
           className="cursor-crosshair block rounded-xl max-w-full"
         />
-
-        {hoverInfo && (
-          <div
-            className="absolute pointer-events-none border border-cyan-400/60 rounded-full w-5 h-5 -translate-x-1/2 -translate-y-1/2 shadow-lg shadow-cyan-500/50"
-            style={{ left: hoverInfo.x + 8, top: hoverInfo.y + 8 }}
-          >
-            <div className="w-1 h-1 bg-cyan-400 rounded-full absolute inset-0 m-auto"></div>
-          </div>
-        )}
       </div>
     </div>
   );
@@ -2267,8 +2297,8 @@ function HillsVisualizerInner({
             </div>
           )}
 
-          {/* Key Metrics Cards Dashboard */}
-          {stats && (
+          {/* Key Metrics Cards Dashboard (Collapsible) */}
+          {stats && showMetrics && (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
 
               <div className="bg-slate-900/80 border border-slate-800/80 rounded-xl p-3.5 shadow-md flex flex-col justify-between">
@@ -2379,10 +2409,21 @@ function HillsVisualizerInner({
                 </button>
               </div>
 
-              {/* File Name Tag */}
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-950/80 rounded-xl border border-slate-800 text-xs font-mono text-slate-300">
-                <FileText size={14} className="text-indigo-400" />
-                <span>{fileName || "No file loaded"}</span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowMetrics(!showMetrics)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-950/80 hover:bg-slate-800 text-slate-300 border border-slate-800 rounded-xl text-xs font-semibold transition-all shadow-sm"
+                  title="Toggle 6-metric summary cards bar"
+                >
+                  <BarChart2 size={13} className="text-cyan-400" />
+                  <span>{showMetrics ? "Hide Metrics" : "Show Metrics"}</span>
+                </button>
+
+                {/* File Name Tag */}
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-950/80 rounded-xl border border-slate-800 text-xs font-mono text-slate-300">
+                  <FileText size={14} className="text-indigo-400" />
+                  <span>{fileName || "No file loaded"}</span>
+                </div>
               </div>
             </div>
           )}
