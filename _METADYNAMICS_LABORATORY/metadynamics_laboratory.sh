@@ -2928,8 +2928,8 @@ export default function OPESSimulator() {
                     <Tooltip contentStyle={TT} formatter={v => v?.toFixed(3)} />
                     <Legend wrapperStyle={{ fontSize: 10, color: '#94a3b8' }} />
                     <Line type="monotone" dataKey="trueFes"  name="True FES"  stroke={CC.trueFes}  dot={false} strokeWidth={2} isAnimationActive={false} />
-                    <Line type="monotone" dataKey="opesFes"  name="OPES FES"  stroke={CC.opesFes}  dot={false} strokeWidth={2} strokeDasharray="5 4" connectNulls={false} isAnimationActive={true} animationDuration={40} animationEasing="linear" />
-                    <Line type="monotone" dataKey="particle" name="Particle"   stroke={CC.particle} dot={{ r: 5, fill: CC.particle, strokeWidth: 2, stroke: '#0f172a' }} connectNulls={false} isAnimationActive={true} animationDuration={40} animationEasing="linear" />
+                    <Line type="monotone" dataKey="opesFes"  name="OPES FES"  stroke={CC.opesFes}  dot={false} strokeWidth={2} strokeDasharray="5 4" connectNulls={false} isAnimationActive={false} />
+                    <Line type="monotone" dataKey="particle" name="Particle"   stroke={CC.particle} dot={{ r: 5, fill: CC.particle, strokeWidth: 2, stroke: '#0f172a' }} connectNulls={false} isAnimationActive={false} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -5187,9 +5187,67 @@ function Canvas2DHeatmap({
   const canvasRef = useRef(null);
   const [hoverInfo, setHoverInfo] = useState(null);
   const [showTrajectory, setShowTrajectory] = useState(false);
+  const [useAutoCmapColor, setUseAutoCmapColor] = useState(true);
+  const [customTrajectoryColor, setCustomTrajectoryColor] = useState("#00b3ff");
   const [projMode, setProjMode] = useState("int"); // "int" (Boltzmann kBT) or "min" (Minimum energy path)
 
   const unitScale = energyUnits === "kcal/mol" ? 0.239006 : 1.0;
+
+  const getTrajectoryColors = (palette, autoCmap, defaultColor) => {
+    if (!autoCmap) {
+      return {
+        line: defaultColor || "rgba(0, 179, 255, 0.9)",
+        headFill: defaultColor || "#00b3ff",
+        headStroke: "#ffffff",
+        glow: defaultColor || "#00b3ff"
+      };
+    }
+
+    switch (palette) {
+      case "inferno":
+        return {
+          line: "rgba(0, 0, 0, 0.85)",
+          headFill: "#000000",
+          headStroke: "#ffffff",
+          glow: "rgba(255, 255, 255, 0.8)"
+        };
+      case "viridis":
+        return {
+          line: "rgba(244, 114, 182, 0.9)",
+          headFill: "#f472b6",
+          headStroke: "#ffffff",
+          glow: "rgba(244, 114, 182, 0.8)"
+        };
+      case "spectral":
+        return {
+          line: "rgba(15, 23, 42, 0.9)",
+          headFill: "#0f172a",
+          headStroke: "#ffffff",
+          glow: "rgba(255, 255, 255, 0.7)"
+        };
+      case "plasma":
+        return {
+          line: "rgba(255, 255, 255, 0.95)",
+          headFill: "#ffffff",
+          headStroke: "#0f172a",
+          glow: "rgba(255, 255, 255, 0.9)"
+        };
+      case "coolwarm":
+        return {
+          line: "rgba(15, 23, 42, 0.9)",
+          headFill: "#0f172a",
+          headStroke: "#ffffff",
+          glow: "rgba(255, 255, 255, 0.8)"
+        };
+      default:
+        return {
+          line: "rgba(0, 179, 255, 0.9)",
+          headFill: "#00b3ff",
+          headStroke: "#ffffff",
+          glow: "rgba(0, 179, 255, 0.8)"
+        };
+    }
+  };
 
   useEffect(() => {
     if (!frameData || !frameData.grid2DFlat || !canvasRef.current) return;
@@ -5456,10 +5514,13 @@ function Canvas2DHeatmap({
 
     // --- 5. TRAJECTORY OVERLAY (IF ENABLED) ---
     if (showTrajectory && hills && hills.length > 0) {
-      const activeHills = hills.slice(0, frameData.activeHillsCount);
+      const uiHillsCount = Math.max(1, Math.floor((frameData.pct / 100) * hills.length));
+      const activeHills = hills.slice(0, uiHillsCount);
       if (activeHills.length > 0) {
+        const trajColors = getTrajectoryColors(colorPalette, useAutoCmapColor, customTrajectoryColor);
+
         ctx.beginPath();
-        ctx.strokeStyle = "rgba(56, 189, 248, 0.65)";
+        ctx.strokeStyle = trajColors.line;
         ctx.lineWidth = 2;
 
         for (let k = 0; k < activeHills.length; k++) {
@@ -5480,12 +5541,12 @@ function Canvas2DHeatmap({
 
         ctx.beginPath();
         ctx.arc(lastPx, lastPy, 6, 0, Math.PI * 2);
-        ctx.fillStyle = "#00f0ff";
-        ctx.shadowColor = "#00f0ff";
+        ctx.fillStyle = trajColors.headFill;
+        ctx.shadowColor = trajColors.glow;
         ctx.shadowBlur = 12;
         ctx.fill();
         ctx.shadowBlur = 0;
-        ctx.strokeStyle = "#ffffff";
+        ctx.strokeStyle = trajColors.headStroke;
         ctx.lineWidth = 1.5;
         ctx.stroke();
       }
@@ -5493,7 +5554,7 @@ function Canvas2DHeatmap({
 
     // --- 6. INTERACTIVE HOVER CROSSHAIR & TARGET DOT ---
     if (hoverInfo && hoverInfo.canvasX >= padLeft && hoverInfo.canvasX <= padLeft + plotW &&
-        hoverInfo.canvasY >= padTop && hoverInfo.canvasY <= padTop + plotH) {
+      hoverInfo.canvasY >= padTop && hoverInfo.canvasY <= padTop + plotH) {
       const hx = hoverInfo.canvasX;
       const hy = hoverInfo.canvasY;
 
@@ -5526,7 +5587,7 @@ function Canvas2DHeatmap({
       ctx.lineWidth = 1.5;
       ctx.stroke();
     }
-  }, [frameData, energyRefMode, energyUnits, cvNames, hills, colorPalette, showTrajectory, projMode, hoverInfo]);
+  }, [frameData, energyRefMode, energyUnits, cvNames, hills, colorPalette, showTrajectory, useAutoCmapColor, customTrajectoryColor, projMode, hoverInfo]);
 
   const handleMouseMove = (e) => {
     if (!canvasRef.current || !frameData || !frameData.grid2DFlat) return;
@@ -5629,26 +5690,50 @@ function Canvas2DHeatmap({
             <span className="font-semibold text-xs">Show Trajectory Overlay</span>
           </label>
 
+          {showTrajectory && (
+            <div className="flex items-center gap-2 bg-slate-950/80 px-2.5 py-1 rounded-xl border border-slate-800 text-slate-300 text-xs">
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={useAutoCmapColor}
+                  onChange={(e) => setUseAutoCmapColor(e.target.checked)}
+                  className="accent-indigo-500 rounded"
+                />
+                <span className="text-[11px] font-medium">Auto Cmap Color</span>
+              </label>
+              {!useAutoCmapColor && (
+                <div className="flex items-center gap-1 ml-1 border-l border-slate-800 pl-2">
+                  <span className="text-[10px] text-slate-400">Color:</span>
+                  <input
+                    type="color"
+                    value={customTrajectoryColor}
+                    onChange={(e) => setCustomTrajectoryColor(e.target.value)}
+                    className="w-5 h-5 bg-transparent border-0 cursor-pointer rounded overflow-hidden"
+                    title="Custom trajectory color"
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Projection Mode Switch */}
           <div className="flex bg-slate-950/90 p-0.5 rounded-xl border border-slate-800 text-[11px]">
             <button
               onClick={() => setProjMode("int")}
-              className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
-                projMode === "int"
+              className={`px-2.5 py-1 rounded-lg font-bold transition-all ${projMode === "int"
                   ? "bg-indigo-600 text-white shadow-sm"
                   : "text-slate-400 hover:text-slate-200"
-              }`}
+                }`}
               title="Boltzmann integration: F(s1) = -kBT ln Sum exp(-F/kBT)"
             >
               Boltzmann (k_B T)
             </button>
             <button
               onClick={() => setProjMode("min")}
-              className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
-                projMode === "min"
+              className={`px-2.5 py-1 rounded-lg font-bold transition-all ${projMode === "min"
                   ? "bg-indigo-600 text-white shadow-sm"
                   : "text-slate-400 hover:text-slate-200"
-              }`}
+                }`}
               title="Minimum energy path: F_min(s1) = min_s2 F(s1, s2)"
             >
               Minimum Path

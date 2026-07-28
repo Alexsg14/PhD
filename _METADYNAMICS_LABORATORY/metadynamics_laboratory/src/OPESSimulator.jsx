@@ -509,8 +509,8 @@ export default function OPESSimulator() {
                     <Tooltip contentStyle={TT} formatter={v => v?.toFixed(3)} />
                     <Legend wrapperStyle={{ fontSize: 10, color: '#94a3b8' }} />
                     <Line type="monotone" dataKey="trueFes"  name="True FES"  stroke={CC.trueFes}  dot={false} strokeWidth={2} isAnimationActive={false} />
-                    <Line type="monotone" dataKey="opesFes"  name="OPES FES"  stroke={CC.opesFes}  dot={false} strokeWidth={2} strokeDasharray="5 4" connectNulls={false} isAnimationActive={true} animationDuration={40} animationEasing="linear" />
-                    <Line type="monotone" dataKey="particle" name="Particle"   stroke={CC.particle} dot={{ r: 5, fill: CC.particle, strokeWidth: 2, stroke: '#0f172a' }} connectNulls={false} isAnimationActive={true} animationDuration={40} animationEasing="linear" />
+                    <Line type="monotone" dataKey="opesFes"  name="OPES FES"  stroke={CC.opesFes}  dot={false} strokeWidth={2} strokeDasharray="5 4" connectNulls={false} isAnimationActive={false} />
+                    <Line type="monotone" dataKey="particle" name="Particle"   stroke={CC.particle} dot={{ r: 5, fill: CC.particle, strokeWidth: 2, stroke: '#0f172a' }} connectNulls={false} isAnimationActive={false} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
