@@ -1,10 +1,11 @@
-# PhD Research: Molecular Dynamics, Proteomics & Virtual Reality
+# PhD Research: Computational Chemistry, Metadynamics, Proteomics & Virtual Reality
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![GROMACS](https://img.shields.io/badge/GROMACS-2021+-brightgreen.svg)](https://www.gromacs.org/)
+[![React 19](https://img.shields.io/badge/React-19-blue.svg)](https://react.dev/)
 
-This repository consolidates computational research tools, simulation analysis pipelines, interactive Virtual Reality (VR) workflows, proteomics data processing, and document prepress tools developed during PhD research.
+This repository consolidates computational research tools, enhanced sampling metadynamics web environments, simulation analysis pipelines, interactive Virtual Reality (VR) workflows, SWATH-MS proteomics data processing, and prepress document processing tools developed during PhD research.
 
 ---
 
@@ -12,6 +13,8 @@ This repository consolidates computational research tools, simulation analysis p
 
 ```
 PhD/
+├── CESGA_scripts/            # Slurm HPC job monitoring & execution utilities for CESGA supercomputer
+│   └── squeue.sh             # Color-coded Slurm queue status & active job summary tool
 ├── Helix_wheel/              # Helical wheel generator & hydrophobic dipole moment calculator
 │   ├── heliquest.py          # Primary wheel renderer & vector plotter
 │   ├── hydrophobic_moment.py # Hydrophobicity scales & dipole calculations
@@ -27,9 +30,12 @@ PhD/
 ├── Repo-SUDOE/               # VR B-factor energy mapping & interaction tools
 │   ├── VR_BFACTOR/           # Energy attribution to receptor B-factors & ProLIF interaction tools
 │   └── README.md             # Module documentation
-├── _METADYNAMICS_LABORATORY/ # Interactive 1D/2D Metadynamics & PLUMED HILLS Laboratory
-│   ├── metadynamics_laboratory/      # React 19 + Vite + Tailwind web application
+├── _METADYNAMICS_LABORATORY/ # Interactive Metadynamics, OPES & PLUMED Analysis Suite
+│   ├── docs/screenshots/     # Application interface screenshots
+│   ├── metadynamics_laboratory/      # React 19 + Vite + Tailwind web application (5 modules: 1D/2D MetaD, 1D OPES, HILLS & OPES Inspectors)
 │   ├── metadynamics_laboratory.sh   # Automated project generator script
+│   ├── opes_simulator/               # Standalone OPES simulator prototype
+│   ├── plot_single_fes_dat.py        # FES profile plotting utility script
 │   └── README.md                     # Laboratory specific documentation
 ├── _PDF_Stamp_/              # Automated dynamic PDF stamping pipeline with PyMuPDF
 │   ├── Stamps.py                     # Main Python stamping & preview script
@@ -38,7 +44,8 @@ PhD/
 │   ├── src/                          # React + Vite + Tailwind source code
 │   ├── visor-pdf.html                # Standalone single-file HTML version
 │   └── README.md                     # Visualizer documentation
-└── README.md                 # Main project documentation & VR setup guide
+├── create_conda.sh           # Environment bootstrap & dependency setup script
+└── README.md                 # Main repository documentation & VR setup guide
 ```
 
 ---
@@ -58,11 +65,12 @@ PhD/
   - [Running NanoVer PC-VR](#running-nanover-pc-vr)
   - [Running Standalone APK with JupyterLab](#running-standalone-apk-with-jupyterlab)
 - [Modules Overview](#-modules-overview)
+  - [Metadynamics & OPES Laboratory](#metadynamics--opes-laboratory)
+  - [CESGA Supercomputing Utilities](#cesga-supercomputing-utilities)
   - [Helical Wheel & Hydrophobic Moment Generator](#helical-wheel--hydrophobic-moment-generator)
   - [Molecular Dynamics Analysis](#molecular-dynamics-analysis)
   - [Proteomics Processing](#proteomics-processing)
   - [SUDOE VR B-Factor Pipeline](#sudoe-vr-b-factor-pipeline)
-  - [Metadynamics Laboratory](#metadynamics-laboratory)
   - [PDF Prepress Book Spread Visualizer](#pdf-prepress-book-spread-visualizer)
   - [Automated PDF Stamping Pipeline](#automated-pdf-stamping-pipeline)
 
@@ -174,6 +182,20 @@ conda install -c irl nanover-imd
 
 ## 🔬 Modules Overview
 
+### Metadynamics & OPES Laboratory
+Located in [`_METADYNAMICS_LABORATORY/`](./_METADYNAMICS_LABORATORY/):
+- **`metadynamics_laboratory/`**: React 19 + Vite + Tailwind web application combining 5 interactive simulation and analysis modules:
+  1. **🧪 1D Metadynamics Simulator**: Overdamped Langevin dynamics with Box-Muller Gaussian thermal noise $\mathcal{N}(0, 1)$, Standard & Well-Tempered Metadynamics (WT-MetaD), custom math expression parser $V(x)$, PRNG seed lock (`mulberry32`), and session JSON export/restore.
+  2. **🌐 2D Metadynamics Simulator**: High-performance HTML5 Canvas 2D heatmap renderer ($V$, $V+V_B$, $V_B$, $F_{\text{est}}$) at 60 FPS with scientific colormaps (Inferno, Viridis, Spectral, Plasma, Coolwarm), interactive walker position clicking, and trajectory path overlay.
+  3. **⚡ OPES 1D Simulator**: On-the-Fly Probability Enhanced Sampling simulation, kernel weight/width adaptation, and real-time $P(s)$, $V(s)$, $F(s)$ reconstruction.
+  4. **📈 PLUMED HILLS Visualizer & Inspector**: Non-blocking background Web Worker parsing engine, 60 FPS real-time FES timeline animation, drag-and-drop file upload, energy display modes ($F = -V$, relative $F_{\min} = 0$, Plateau Zero), multi-stage convergence analysis, and PLUMED `fes.dat` export.
+  5. **🔍 PLUMED OPES Inspector**: Parses PLUMED `KERNELS` and `OPES_STATE` output files, analyzes kernel accumulation over time, and exports FES profiles to `fes.dat`.
+- **`metadynamics_laboratory.sh`**: Automated project generator script to bootstrap a new, fully-configured instance of the laboratory application. See [`_METADYNAMICS_LABORATORY/README.md`](./_METADYNAMICS_LABORATORY/README.md) for full documentation.
+
+### CESGA Supercomputing Utilities
+Located in [`CESGA_scripts/`](./CESGA_scripts/):
+- **`squeue.sh`**: Interactive CLI status monitoring tool for Slurm queues on the CESGA (FinisTerrae) supercomputer. Displays color-coded job status (Running, Pending), resource limits, start times, and active user job counts.
+
 ### Helical Wheel & Hydrophobic Moment Generator
 Located in [`Helix_wheel/`](./Helix_wheel/):
 - **`heliquest.py`**: Programmatic generation of 2D helical wheel diagrams (HeliQuest style) with residue chemical color coding, hydrophobic dipole moment vector ($\vec{\mu}_H$) direction rendering, and high-resolution PNG export.
@@ -199,13 +221,6 @@ Located in [`Repo-SUDOE/`](./Repo-SUDOE/):
 - **`VR_BFACTOR/ligand_energy_attribution_bfactor.py`**: Standalone processor mapping AutoDock Vina binding energy ranks onto receptor B-factor fields in PDB files for 3D visual analysis in VR.
 - **`VR_BFACTOR/bfactor.sh`**: Automated GROMACS trajectory assembly and B-factor mapping pipeline script.
 - **`VR_BFACTOR/aa_interaction_flags.py`**: ProLIF interaction fingerprint calculator exporting residue-level contact metadata. See [`Repo-SUDOE/README.md`](./Repo-SUDOE/README.md) for full module documentation.
-
-### Metadynamics Laboratory
-Located in [`_METADYNAMICS_LABORATORY/`](./_METADYNAMICS_LABORATORY/):
-- **`metadynamics_laboratory/`**: React 19 + Vite + Tailwind web application combining 3 modules:
-  1. **1D & 2D Metadynamics Simulators**: Overdamped Langevin dynamics with Box-Muller Gaussian thermal noise $\mathcal{N}(0, 1)$, custom 1D/2D potential functions $V(x)$ & $V(x,y)$, 2D Canvas heatmap rendering ($V$, $V+V_B$, $V_B$, $F_{\text{est}}$), PRNG seed reproducibility (`mulberry32`), presets, and session JSON export/restore.
-  2. **PLUMED HILLS Visualizer & Inspector**: Non-blocking background Web Worker parsing engine, 60 FPS real-time FES timeline animation, drag-and-drop file upload, energy display modes ($F = -V$ vs relative $F_{\min} = 0$), Well-Tempered scaling factor $\gamma$, multi-stage convergence analysis, and PLUMED `fes.dat` export.
-- **`metadynamics_laboratory.sh`**: Automated generator script to bootstrap a new, fully-configured instance of the laboratory application from scratch. See [`_METADYNAMICS_LABORATORY/README.md`](./_METADYNAMICS_LABORATORY/README.md) for full module documentation.
 
 ### PDF Prepress Book Spread Visualizer
 Located in [`_Visor_PDF_/`](./_Visor_PDF_/):
