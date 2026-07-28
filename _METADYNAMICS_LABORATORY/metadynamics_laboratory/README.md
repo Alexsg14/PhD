@@ -74,6 +74,35 @@ The optimized bundle will be compiled into the `dist/` directory.
 
 ---
 
+## 📂 Directory Structure
+
+```
+metadynamics_laboratory/
+├── docs/screenshots/               # Application screenshots
+├── public/                         # Public static assets
+├── src/
+│   ├── assets/                     # Application icons and graphic assets
+│   ├── App.css                     # Main layout styling
+│   ├── App.jsx                     # Top-level shell with 5-mode navigation sidebar
+│   ├── HillsVisualizer.jsx         # PLUMED HILLS inspector with Web Worker & 60 FPS visualizer
+│   ├── MathEq.jsx                  # Formula & LaTeX text rendering component
+│   ├── MetadynamicsLab.jsx         # 1D Metadynamics simulation engine & UI
+│   ├── MetadynamicsLab2D.jsx       # 2D Metadynamics HTML5 Canvas heatmap engine & UI
+│   ├── OPESSimulator.jsx           # OPES 1D simulator engine & UI
+│   ├── OpesVisualizer.jsx          # PLUMED OPES KERNELS inspector & visualizer
+│   ├── sampleHills.js              # Fallback sample HILLS dataset
+│   ├── index.css                   # Tailwind CSS directives & custom scrollbars
+│   └── main.jsx                    # React DOM entrypoint
+├── eslint.config.js                # ESLint configuration
+├── index.html                      # Single page HTML template
+├── package.json                    # Project metadata & npm dependencies
+├── postcss.config.js               # PostCSS configuration for Tailwind
+├── tailwind.config.js              # Tailwind CSS configuration
+└── vite.config.js                  # Vite build configuration
+```
+
+---
+
 ## 🛠️ Project Scripts
 
 - `npm run dev` - Launch local dev server with HMR.

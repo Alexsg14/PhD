@@ -138,26 +138,33 @@ The simulation engine includes a 100% deterministic pseudo-random number generat
 ```
 _METADYNAMICS_LABORATORY/
 ├── docs/
-│   └── screenshots/                    # Application screenshots for README
-├── HILLS                               # Sample PLUMED HILLS dataset
-├── metadynamics_laboratory.sh          # Generator script for new projects
-└── metadynamics_laboratory/            # Web Application Root
+│   └── screenshots/                    # Screenshots for repository README documentation
+├── HILLS                               # Sample PLUMED HILLS dataset file
+├── metadynamics_laboratory.sh          # Generator script to bootstrap standalone project
+├── opes_simulator/                     # Standalone OPES simulator prototype
+├── plot_single_fes_dat.py              # Python utility script for rendering single fes.dat profiles
+└── metadynamics_laboratory/            # Main Web Application Root
     ├── docs/screenshots/               # Application screenshots
+    ├── public/                         # Public static assets
     ├── src/
-    │   ├── App.jsx                     # Main layout & 5-mode sidebar navigation
+    │   ├── assets/                     # Application icons and graphic assets
+    │   ├── App.css                     # Main layout styling
+    │   ├── App.jsx                     # Top-level shell with 5-mode navigation sidebar
+    │   ├── HillsVisualizer.jsx         # PLUMED HILLS inspector with Web Worker & 60 FPS visualizer
+    │   ├── MathEq.jsx                  # Formula & LaTeX text rendering component
     │   ├── MetadynamicsLab.jsx         # 1D Metadynamics simulation engine & UI
-    │   ├── MetadynamicsLab2D.jsx       # 2D Metadynamics canvas heatmap engine & UI
+    │   ├── MetadynamicsLab2D.jsx       # 2D Metadynamics HTML5 Canvas heatmap engine & UI
     │   ├── OPESSimulator.jsx           # OPES 1D simulator engine & UI
-    │   ├── HillsVisualizer.jsx         # PLUMED HILLS parser, web worker & 60 FPS visualizer
-    │   ├── OpesVisualizer.jsx          # PLUMED OPES KERNELS parser & visualizer
-    │   ├── MathEq.jsx                  # Formula rendering component
-    │   ├── sampleHills.js              # Fallback sample dataset
-    │   ├── index.css                   # Tailwind CSS styling & custom scrollbars
-    │   └── main.jsx                    # React entrypoint
+    │   ├── OpesVisualizer.jsx          # PLUMED OPES KERNELS inspector & visualizer
+    │   ├── sampleHills.js              # Fallback sample HILLS dataset
+    │   ├── index.css                   # Tailwind CSS directives & custom scrollbars
+    │   └── main.jsx                    # React DOM entrypoint
+    ├── eslint.config.js                # ESLint configuration
     ├── index.html                      # Single page HTML template
-    ├── package.json                    # Project dependencies & scripts
+    ├── package.json                    # Project metadata & npm dependencies
+    ├── postcss.config.js               # PostCSS configuration for Tailwind
     ├── tailwind.config.js              # Tailwind CSS configuration
-    └── vite.config.js                  # Vite configuration
+    └── vite.config.js                  # Vite build configuration
 ```
 
 ---
