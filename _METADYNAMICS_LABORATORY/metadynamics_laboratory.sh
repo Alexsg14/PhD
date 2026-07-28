@@ -3736,28 +3736,30 @@ export default function OpesVisualizer() {
       {/* Main 2-Column Inspector Section */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Column 2: OPES Control Panel */}
-        <div className="lg:col-span-3 space-y-4">
-          <OpesControlPanel
-            energyRefMode={energyRefMode}
-            setEnergyRefMode={setEnergyRefMode}
-            inputNumBins={inputNumBins}
-            setInputNumBins={setInputNumBins}
-            inputCustomBias={inputCustomBias}
-            setInputCustomBias={setInputCustomBias}
-            energyUnits={energyUnits}
-            setEnergyUnits={setEnergyUnits}
-            inputGridMin={inputGridMin}
-            setInputGridMin={setInputGridMin}
-            inputGridMax={inputGridMax}
-            setInputGridMax={setInputGridMax}
-            handleApplyGridParams={handleApplyGridParams}
-            handleResetGridBounds={handleResetGridBounds}
-            opesMetadata={opesData}
-          />
-        </div>
+        {opesData && (
+          <div className="lg:col-span-3 space-y-4">
+            <OpesControlPanel
+              energyRefMode={energyRefMode}
+              setEnergyRefMode={setEnergyRefMode}
+              inputNumBins={inputNumBins}
+              setInputNumBins={setInputNumBins}
+              inputCustomBias={inputCustomBias}
+              setInputCustomBias={setInputCustomBias}
+              energyUnits={energyUnits}
+              setEnergyUnits={setEnergyUnits}
+              inputGridMin={inputGridMin}
+              setInputGridMin={setInputGridMin}
+              inputGridMax={inputGridMax}
+              setInputGridMax={setInputGridMax}
+              handleApplyGridParams={handleApplyGridParams}
+              handleResetGridBounds={handleResetGridBounds}
+              opesMetadata={opesData}
+            />
+          </div>
+        )}
 
         {/* Column 3: Main Visualizer Content */}
-        <div className="lg:col-span-9 space-y-4">
+        <div className={opesData ? "lg:col-span-9 space-y-4" : "lg:col-span-12 space-y-4"}>
           {/* EMPTY STATE DROPZONE */}
           {!opesData && !isLoading && (
             <div
@@ -6543,30 +6545,32 @@ function HillsVisualizerInner({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
 
         {/* Column 2 (Adjacent to main sidebar): HILLS Inspector Options & Parameters */}
-        <div className="lg:col-span-3 space-y-4">
-          <HillsControlPanel
-            energyRefMode={energyRefMode}
-            setEnergyRefMode={setEnergyRefMode}
-            isWtScaling={isWtScaling}
-            setIsWtScaling={setIsWtScaling}
-            inputNumBins={inputNumBins}
-            setInputNumBins={setInputNumBins}
-            inputCustomBias={inputCustomBias}
-            setInputCustomBias={setInputCustomBias}
-            energyUnits={energyUnits}
-            setEnergyUnits={setEnergyUnits}
-            inputGridMin={inputGridMin}
-            setInputGridMin={setInputGridMin}
-            inputGridMax={inputGridMax}
-            setInputGridMax={setInputGridMax}
-            handleApplyGridParams={handleApplyGridParams}
-            handleResetGridBounds={handleResetGridBounds}
-            hillsMetadata={hillsMetadata}
-          />
-        </div>
+        {hillsData && (
+          <div className="lg:col-span-3 space-y-4">
+            <HillsControlPanel
+              energyRefMode={energyRefMode}
+              setEnergyRefMode={setEnergyRefMode}
+              isWtScaling={isWtScaling}
+              setIsWtScaling={setIsWtScaling}
+              inputNumBins={inputNumBins}
+              setInputNumBins={setInputNumBins}
+              inputCustomBias={inputCustomBias}
+              setInputCustomBias={setInputCustomBias}
+              energyUnits={energyUnits}
+              setEnergyUnits={setEnergyUnits}
+              inputGridMin={inputGridMin}
+              setInputGridMin={setInputGridMin}
+              inputGridMax={inputGridMax}
+              setInputGridMax={setInputGridMax}
+              handleApplyGridParams={handleApplyGridParams}
+              handleResetGridBounds={handleResetGridBounds}
+              hillsMetadata={hillsMetadata}
+            />
+          </div>
+        )}
 
         {/* Column 3 (Rest of the screen): File Upload Dropzone / Visualizer Content */}
-        <div className="lg:col-span-9 space-y-4">
+        <div className={hillsData ? "lg:col-span-9 space-y-4" : "lg:col-span-12 space-y-4"}>
 
           {/* EMPTY STATE PLACEHOLDER (When no HILLS file is loaded) */}
           {!hillsData && !isLoading && (
@@ -7267,11 +7271,32 @@ function App() {
           </div>
 
           {/* Footer Info inside left column sidebar */}
-          <div className="pt-3 border-t border-slate-800/80 px-1 text-[10px] text-slate-500 flex items-center justify-between">
-            <span className="font-semibold text-slate-400 flex items-center gap-1">
-              <ShieldCheck size={12} className="text-cyan-400" /> Lab v1.1
-            </span>
-            <span className="text-[9px] text-slate-500 font-mono">React 19 + OPES</span>
+          <div className="pt-3 border-t border-slate-800/80 px-1 text-[10px] text-slate-400 leading-relaxed space-y-1.5">
+            <div>
+              Developed by{" "}
+              <a
+                href="https://github.com/Alexsg14"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold text-slate-200 hover:text-cyan-400 transition-colors underline decoration-slate-700 underline-offset-2"
+              >
+                Alejandro Seco-Gonzalez
+              </a>{" "}
+              in collaboration with{" "}
+              <span className="font-semibold text-slate-200">Daniel Arias-Ferreiro</span> at{" "}
+              <a
+                href="https://simbios.usc.es/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-bold text-cyan-400 hover:text-cyan-300 transition-colors underline decoration-cyan-500/40 underline-offset-2"
+              >
+                SIMBIOS
+              </a>
+            </div>
+            <div className="flex items-center gap-1.5 text-slate-500">
+              <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-slate-600"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              Files are processed locally — no data is uploaded or stored.
+            </div>
           </div>
         </aside>
 

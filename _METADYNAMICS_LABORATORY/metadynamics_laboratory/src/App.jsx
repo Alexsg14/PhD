@@ -182,11 +182,32 @@ function App() {
           </div>
 
           {/* Footer Info inside left column sidebar */}
-          <div className="pt-3 border-t border-slate-800/80 px-1 text-[10px] text-slate-500 flex items-center justify-between">
-            <span className="font-semibold text-slate-400 flex items-center gap-1">
-              <ShieldCheck size={12} className="text-cyan-400" /> Lab v1.1
-            </span>
-            <span className="text-[9px] text-slate-500 font-mono">React 19 + OPES</span>
+          <div className="pt-3 border-t border-slate-800/80 px-1 text-[10px] text-slate-400 leading-relaxed space-y-1.5">
+            <div>
+              Developed by{" "}
+              <a
+                href="https://github.com/Alexsg14"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold text-slate-200 hover:text-cyan-400 transition-colors underline decoration-slate-700 underline-offset-2"
+              >
+                Alejandro Seco-Gonzalez
+              </a>{" "}
+              in collaboration with{" "}
+              <span className="font-semibold text-slate-200">Daniel Arias-Ferreiro</span> at{" "}
+              <a
+                href="https://simbios.usc.es/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-bold text-cyan-400 hover:text-cyan-300 transition-colors underline decoration-cyan-500/40 underline-offset-2"
+              >
+                SIMBIOS
+              </a>
+            </div>
+            <div className="flex items-center gap-1.5 text-slate-500">
+              <svg xmlns="http://www.w3.org/2000/svg" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-slate-600"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              Files are processed locally — no data is uploaded or stored.
+            </div>
           </div>
         </aside>
 

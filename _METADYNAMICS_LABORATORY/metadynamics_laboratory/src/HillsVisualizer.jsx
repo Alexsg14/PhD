@@ -2278,27 +2278,27 @@ function HillsVisualizerInner({
       )}
 
       {/* Top Banner Header */}
-      <header className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-2xl p-5 shadow-2xl flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 relative overflow-hidden">
-        <div className="flex items-center gap-4 z-10">
-          <div className="p-3 bg-gradient-to-br from-indigo-500/20 to-purple-600/20 border border-indigo-500/30 rounded-xl text-indigo-400 shadow-lg shadow-indigo-500/10">
-            <BarChart2 size={28} className="animate-pulse" />
+      <header className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-2xl p-4 shadow-xl flex justify-between items-center flex-wrap gap-3">
+        <div className="flex items-center gap-3 z-10">
+          <div className="p-2 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl shadow-lg shadow-indigo-500/20 text-white">
+            <BarChart2 size={20} />
           </div>
           <div>
-            <div className="flex items-center gap-2.5">
-              <h1 className="text-2xl font-extrabold text-white tracking-tight bg-gradient-to-r from-white via-slate-100 to-indigo-300 bg-clip-text text-transparent">
-                PLUMED HILLS Visualizer & Inspector
+            <div className="flex items-center gap-2">
+              <h1 className="font-extrabold text-sm text-white tracking-wide">
+                PLUMED HILLS Visualizer &amp; Inspector
               </h1>
-              <span className="px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-indigo-950 text-indigo-400 border border-indigo-800/60 rounded-full">
+              <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-indigo-950 text-indigo-400 border border-indigo-800/60 rounded-full">
                 {hillsData?.is2D ? "2D Mode Enabled" : "1D / 2D Engine"}
               </span>
             </div>
-            <p className="text-slate-400 text-xs mt-1">
+            <p className="text-xs text-indigo-400 font-mono font-medium">
               Reconstruction of 1D and 2D Free Energy Surfaces from PLUMED HILLS data
             </p>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto justify-end z-10">
+        <div className="flex items-center gap-2 z-10">
           <input
             type="file"
             ref={fileInputRef}
@@ -2309,7 +2309,7 @@ function HillsVisualizerInner({
           <button
             onClick={() => fileInputRef.current.click()}
             disabled={isLoading}
-            className="py-2.5 px-5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-md shadow-indigo-600/20 disabled:opacity-50"
+            className="py-2 px-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-md shadow-indigo-600/20 disabled:opacity-50"
           >
             <Upload size={16} />
             <span>Upload HILLS File</span>
@@ -2334,30 +2334,32 @@ function HillsVisualizerInner({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
 
         {/* Column 2 (Adjacent to main sidebar): HILLS Inspector Options & Parameters */}
-        <div className="lg:col-span-3 space-y-4">
-          <HillsControlPanel
-            energyRefMode={energyRefMode}
-            setEnergyRefMode={setEnergyRefMode}
-            isWtScaling={isWtScaling}
-            setIsWtScaling={setIsWtScaling}
-            inputNumBins={inputNumBins}
-            setInputNumBins={setInputNumBins}
-            inputCustomBias={inputCustomBias}
-            setInputCustomBias={setInputCustomBias}
-            energyUnits={energyUnits}
-            setEnergyUnits={setEnergyUnits}
-            inputGridMin={inputGridMin}
-            setInputGridMin={setInputGridMin}
-            inputGridMax={inputGridMax}
-            setInputGridMax={setInputGridMax}
-            handleApplyGridParams={handleApplyGridParams}
-            handleResetGridBounds={handleResetGridBounds}
-            hillsMetadata={hillsMetadata}
-          />
-        </div>
+        {hillsData && (
+          <div className="lg:col-span-3 space-y-4">
+            <HillsControlPanel
+              energyRefMode={energyRefMode}
+              setEnergyRefMode={setEnergyRefMode}
+              isWtScaling={isWtScaling}
+              setIsWtScaling={setIsWtScaling}
+              inputNumBins={inputNumBins}
+              setInputNumBins={setInputNumBins}
+              inputCustomBias={inputCustomBias}
+              setInputCustomBias={setInputCustomBias}
+              energyUnits={energyUnits}
+              setEnergyUnits={setEnergyUnits}
+              inputGridMin={inputGridMin}
+              setInputGridMin={setInputGridMin}
+              inputGridMax={inputGridMax}
+              setInputGridMax={setInputGridMax}
+              handleApplyGridParams={handleApplyGridParams}
+              handleResetGridBounds={handleResetGridBounds}
+              hillsMetadata={hillsMetadata}
+            />
+          </div>
+        )}
 
         {/* Column 3 (Rest of the screen): File Upload Dropzone / Visualizer Content */}
-        <div className="lg:col-span-9 space-y-4">
+        <div className={hillsData ? "lg:col-span-9 space-y-4" : "lg:col-span-12 space-y-4"}>
 
           {/* EMPTY STATE PLACEHOLDER (When no HILLS file is loaded) */}
           {!hillsData && !isLoading && (

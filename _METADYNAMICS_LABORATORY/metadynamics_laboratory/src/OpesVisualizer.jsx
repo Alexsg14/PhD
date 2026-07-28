@@ -680,28 +680,30 @@ export default function OpesVisualizer() {
       {/* Main 2-Column Inspector Section */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Column 2: OPES Control Panel */}
-        <div className="lg:col-span-3 space-y-4">
-          <OpesControlPanel
-            energyRefMode={energyRefMode}
-            setEnergyRefMode={setEnergyRefMode}
-            inputNumBins={inputNumBins}
-            setInputNumBins={setInputNumBins}
-            inputCustomBias={inputCustomBias}
-            setInputCustomBias={setInputCustomBias}
-            energyUnits={energyUnits}
-            setEnergyUnits={setEnergyUnits}
-            inputGridMin={inputGridMin}
-            setInputGridMin={setInputGridMin}
-            inputGridMax={inputGridMax}
-            setInputGridMax={setInputGridMax}
-            handleApplyGridParams={handleApplyGridParams}
-            handleResetGridBounds={handleResetGridBounds}
-            opesMetadata={opesData}
-          />
-        </div>
+        {opesData && (
+          <div className="lg:col-span-3 space-y-4">
+            <OpesControlPanel
+              energyRefMode={energyRefMode}
+              setEnergyRefMode={setEnergyRefMode}
+              inputNumBins={inputNumBins}
+              setInputNumBins={setInputNumBins}
+              inputCustomBias={inputCustomBias}
+              setInputCustomBias={setInputCustomBias}
+              energyUnits={energyUnits}
+              setEnergyUnits={setEnergyUnits}
+              inputGridMin={inputGridMin}
+              setInputGridMin={setInputGridMin}
+              inputGridMax={inputGridMax}
+              setInputGridMax={setInputGridMax}
+              handleApplyGridParams={handleApplyGridParams}
+              handleResetGridBounds={handleResetGridBounds}
+              opesMetadata={opesData}
+            />
+          </div>
+        )}
 
         {/* Column 3: Main Visualizer Content */}
-        <div className="lg:col-span-9 space-y-4">
+        <div className={opesData ? "lg:col-span-9 space-y-4" : "lg:col-span-12 space-y-4"}>
           {/* EMPTY STATE DROPZONE */}
           {!opesData && !isLoading && (
             <div
