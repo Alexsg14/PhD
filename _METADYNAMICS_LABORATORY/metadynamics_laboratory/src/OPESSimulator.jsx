@@ -365,10 +365,10 @@ export default function OPESSimulator() {
   useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
 
   const SLIDERS = [
-    { label: 'Bias Factor (γ)',     id: 'gamma',   val: gamma,   set: setGamma,   min: 1.1, max: 100, step: 0.1, color: 'cyan',    unit: '',             desc: 'Distribución objetivo más plana' },
-    { label: 'Inverse Temp (β)',    id: 'beta',    val: beta,    set: setBeta,    min: 0.1, max: 5,   step: 0.1, color: 'indigo',  unit: '',             desc: 'Temperatura inversa del sistema' },
-    { label: 'Energy Barrier (ΔE)', id: 'barrier', val: barrier, set: setBarrier, min: 1,   max: 40,  step: 1,   color: 'emerald', unit: 'kT',           desc: 'Regula el término ε de regularización' },
-    { label: 'Sim Speed',           id: 'speed',   val: speed,   set: setSpeed,   min: 1,   max: 300, step: 5,   color: 'amber',   unit: 'steps/frame',  desc: 'Pasos por fotograma de animación' },
+    { label: 'Bias Factor (γ)',     id: 'gamma',   val: gamma,   set: setGamma,   min: 1.1, max: 100, step: 0.1, color: 'cyan',    unit: '',             desc: 'Flatter target distribution' },
+    { label: 'Inverse Temp (β)',    id: 'beta',    val: beta,    set: setBeta,    min: 0.1, max: 5,   step: 0.1, color: 'indigo',  unit: '',             desc: 'Inverse temperature of the system' },
+    { label: 'Energy Barrier (ΔE)', id: 'barrier', val: barrier, set: setBarrier, min: 1,   max: 40,  step: 1,   color: 'emerald', unit: 'kT',           desc: 'Regulates regularization parameter ε' },
+    { label: 'Sim Speed',           id: 'speed',   val: speed,   set: setSpeed,   min: 1,   max: 300, step: 5,   color: 'amber',   unit: 'steps/frame',  desc: 'Steps per animation frame' },
   ];
 
   return (
@@ -592,9 +592,9 @@ export default function OPESSimulator() {
               <MathBlock tex={`p^{\\rm tg} = \\left[P(\\xi)\\right]^{1/\\gamma}`} />
             </div>
             <ul className="space-y-1.5 pl-4 border-l-2 border-slate-800 text-[12px]">
-              <li><span className="text-amber-400 font-bold font-mono">γ = 1</span> → p<sup>tg</sup> = P(ξ), sin cambios en la distribución.</li>
-              <li><span className="text-amber-400 font-bold font-mono">γ → ∞</span> → Distribución uniforme, todos los estados equiprobables.</li>
-              <li><span className="text-amber-400 font-bold font-mono">1 &lt; γ &lt; ∞</span> → Distribución más plana, barreras reducidas.</li>
+              <li><span className="text-amber-400 font-bold font-mono">γ = 1</span> → p<sup>tg</sup> = P(ξ), unchanged distribution.</li>
+              <li><span className="text-amber-400 font-bold font-mono">γ → ∞</span> → Flat target limit, uniform distribution where all states are equiprobable.</li>
+              <li><span className="text-amber-400 font-bold font-mono">1 &lt; γ &lt; ∞</span> → Flatter distribution, reduced free energy barriers.</li>
             </ul>
 
             <h3 className="text-sm font-bold text-slate-200 border-b border-slate-800/60 pb-1 mt-4">Estimating P(ξ) — Weighted KDE</h3>
@@ -607,21 +607,21 @@ export default function OPESSimulator() {
               <MathBlock tex={`V_n(\\xi) = \\left(1 - \\frac{1}{\\gamma}\\right)\\frac{1}{\\beta}\\ln\\!\\left(\\frac{P_n(\\xi)}{Z_n} + \\varepsilon\\right)`} />
             </div>
             <ul className="space-y-1.5 pl-4 border-l-2 border-slate-800 font-mono text-[11px]">
-              <li><span className="text-indigo-400">Z_n</span> = Σ<sub>k</sub> e<sup>βV<sub>k-1</sub>(ξ<sub>k</sub>)</sup> — factor de normalización</li>
-              <li><span className="text-indigo-400">ε</span> = e<sup>−βΔE/(1−1/γ)</sup> — término de regularización</li>
+              <li><span className="text-indigo-400">Z_n</span> = Σ<sub>k</sub> e<sup>βV<sub>k-1</sub>(ξ<sub>k</sub>)</sup> — normalization factor</li>
+              <li><span className="text-indigo-400">ε</span> = e<sup>−βΔE/(1−1/γ)</sup> — regularization parameter</li>
             </ul>
 
             <h3 className="text-sm font-bold text-slate-200 border-b border-slate-800/60 pb-1 mt-4">MetaD vs OPES</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-4 space-y-2">
                 <h4 className="font-bold text-slate-300 text-center text-xs border-b border-slate-800 pb-2">Metadynamics</h4>
-                <p className="text-[11px] text-slate-500">Gaussianas depositadas construyen directamente V<sub>n</sub>(ξ).</p>
-                <p className="text-[11px] text-slate-500">Reweighting sobre la trayectoria completa al final.</p>
+                <p className="text-[11px] text-slate-500">Deposited Gaussians directly build the bias potential V<sub>n</sub>(ξ).</p>
+                <p className="text-[11px] text-slate-500">Reweighting performed over the full trajectory after convergence.</p>
               </div>
               <div className="bg-amber-950/20 border border-amber-800/30 rounded-xl p-4 space-y-2">
                 <h4 className="font-bold text-amber-400 text-center text-xs border-b border-amber-800/30 pb-2">OPES</h4>
-                <p className="text-[11px] text-slate-400">Gaussianas reconstruyen P<sub>n</sub>(ξ), la distribución de probabilidad.</p>
-                <p className="text-[11px] text-slate-400">Reweighting <strong className="text-amber-300">on-the-fly</strong> durante la simulación.</p>
+                <p className="text-[11px] text-slate-400">Deposited Gaussians reconstruct the probability distribution P<sub>n</sub>(ξ).</p>
+                <p className="text-[11px] text-slate-400">Reweighting performed <strong className="text-amber-300">on-the-fly</strong> during simulation.</p>
               </div>
             </div>
           </div>
