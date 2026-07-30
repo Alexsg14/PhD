@@ -610,20 +610,12 @@ function createHillsWorker() {
       }
     }
 
-    // C. Unique time count ratio
-    const uniqueTimeSet = new Set();
-    for (let i = 0; i < rawRows.length; i++) {
-      uniqueTimeSet.add(Math.round((rawRows[i][timeIdx] ?? 0) * 100) / 100);
-    }
-    const uniqueCount = uniqueTimeSet.size || 1;
-    const ratioWalkers = Math.round(rawRows.length / uniqueCount);
-
     if (blockStartIndices.length > 1) {
       detectedWalkers = blockStartIndices.length;
-    } else if (initSameCount > 1) {
+    } else if (initSameCount >= 2) {
       detectedWalkers = initSameCount;
-    } else if (ratioWalkers >= 2) {
-      detectedWalkers = ratioWalkers;
+    } else {
+      detectedWalkers = 1;
     }
 
     const isBlockStructure = blockStartIndices.length > 1 && blockStartIndices.length === detectedWalkers;
@@ -2354,16 +2346,7 @@ function HillsVisualizerInner({
 
     const hills = hillsData.hills;
 
-    // 1. Ratio of total hills to unique rounded timestamps (universal formula for multiwalker)
-    const uniqueTimesSet = new Set();
-    for (let i = 0; i < hills.length; i++) {
-      uniqueTimesSet.add(Math.round(hills[i].time * 100) / 100);
-    }
-    const uniqueCount = uniqueTimesSet.size || 1;
-    const ratio = hills.length / uniqueCount;
-    const ratioWalkers = ratio >= 1.5 ? Math.round(ratio) : 1;
-
-    // 2. Count initial consecutive hills sharing the same initial timestamp
+    // 1. Count initial consecutive hills sharing the same initial timestamp
     let initialSameTimeCount = 0;
     if (hills.length > 0) {
       const t0Rounded = Math.round(hills[0].time * 100) / 100;
@@ -2375,7 +2358,7 @@ function HillsVisualizerInner({
       }
     }
 
-    // 3. Check for timestamp drops (consecutive blocks per walker)
+    // 2. Check for timestamp drops (consecutive blocks per walker)
     const blockStartIndices = [0];
     for (let i = 1; i < hills.length; i++) {
       if (hills[i].time < hills[i - 1].time) {
@@ -2383,7 +2366,7 @@ function HillsVisualizerInner({
       }
     }
 
-    let detectedWalkers = hillsData.numWalkers || Math.max(ratioWalkers, initialSameTimeCount, blockStartIndices.length);
+    let detectedWalkers = hillsData.numWalkers || (blockStartIndices.length > 1 ? blockStartIndices.length : (initialSameTimeCount >= 2 ? initialSameTimeCount : 1));
     if (!detectedWalkers || isNaN(detectedWalkers) || detectedWalkers < 1) detectedWalkers = 1;
 
     const numWalkers = detectedWalkers;
