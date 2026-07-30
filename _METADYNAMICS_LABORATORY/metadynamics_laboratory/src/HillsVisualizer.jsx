@@ -2041,7 +2041,7 @@ function HillsVisualizerInner({
 
   const [timeStepProgress, setTimeStepProgress] = useState(100);
   const [isPlayingTime, setIsPlayingTime] = useState(false);
-  const [playbackSpeed, setPlaybackSpeed] = useState(60);
+  const [speedMultiplier, setSpeedMultiplier] = useState(1.0);
 
   const fileInputRef = useRef(null);
   const activeFileRef = useRef(null);
@@ -2135,6 +2135,7 @@ function HillsVisualizerInner({
   useEffect(() => {
     let timer = null;
     if (isPlayingTime) {
+      const delay = Math.max(10, Math.floor(100 / speedMultiplier));
       timer = setInterval(() => {
         setTimeStepProgress((prev) => {
           if (prev >= 100) {
@@ -2143,12 +2144,12 @@ function HillsVisualizerInner({
           }
           return prev + 1;
         });
-      }, playbackSpeed);
+      }, delay);
     }
     return () => {
       if (timer) clearInterval(timer);
     };
-  }, [isPlayingTime, playbackSpeed]);
+  }, [isPlayingTime, speedMultiplier]);
 
   // Execute Background Web Worker Parsing & Pre-computation with Zero-Copy File Handle
   const processHillsFileObj = (fileObj) => {
@@ -2955,6 +2956,23 @@ function HillsVisualizerInner({
                     >
                       <RotateCcw size={13} />
                     </button>
+
+                    {/* Speed Multiplier */}
+                    <div className="flex bg-slate-900 p-0.5 rounded-lg border border-slate-800 text-[10px] font-mono ml-1">
+                      {[0.25, 0.5, 1, 2, 5].map((s) => (
+                        <button
+                          key={s}
+                          onClick={() => setSpeedMultiplier(s)}
+                          className={`px-1.5 py-0.5 rounded transition-all ${
+                            speedMultiplier === s
+                              ? "bg-cyan-500 text-slate-950 font-bold shadow-sm"
+                              : "text-slate-400 hover:text-slate-200"
+                          }`}
+                        >
+                          {s}x
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   <span className="font-mono text-cyan-400 font-bold text-xs">

@@ -233,6 +233,7 @@ export default function OpesVisualizer() {
 
   const [timeStepProgress, setTimeStepProgress] = useState(100);
   const [isPlayingTime, setIsPlayingTime] = useState(false);
+  const [speedMultiplier, setSpeedMultiplier] = useState(1.0);
   const fileInputRef = useRef(null);
 
   // Parse PLUMED OPES file (STATE Mandatory with internal 'zed' check)
@@ -551,35 +552,26 @@ export default function OpesVisualizer() {
   }, [timeStepProgress]);
 
   useEffect(() => {
-    if (!isPlayingTime) {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      return;
+    let timer = null;
+    if (isPlayingTime) {
+      const delay = Math.max(10, Math.floor(100 / speedMultiplier));
+      timer = setInterval(() => {
+        setTimeStepProgress((prev) => {
+          if (prev >= 100) {
+            setIsPlayingTime(false);
+            return 100;
+          }
+          const next = prev + 1;
+          const frame = computeFrameData(next);
+          setCurrentFrameData(frame);
+          return next;
+        });
+      }, delay);
     }
-
-    // How many percentage points to advance per frame (target ~30fps feel).
-    // For large files with many kernels the computation already throttles naturally.
-    const stepPerFrame = Math.max(1, Math.ceil(opesData?.kernels?.length / 2000) );
-
-    const tick = () => {
-      const next = progressRef.current + stepPerFrame;
-      if (next >= 100) {
-        progressRef.current = 100;
-        setTimeStepProgress(100);
-        const frame = computeFrameData(100);
-        setCurrentFrameData(frame);
-        setIsPlayingTime(false);
-        return;
-      }
-      progressRef.current = next;
-      setTimeStepProgress(next);
-      const frame = computeFrameData(next);
-      setCurrentFrameData(frame);
-      rafRef.current = requestAnimationFrame(tick);
+    return () => {
+      if (timer) clearInterval(timer);
     };
-
-    rafRef.current = requestAnimationFrame(tick);
-    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
-  }, [isPlayingTime, computeFrameData, opesData]);
+  }, [isPlayingTime, speedMultiplier, computeFrameData, opesData]);
 
   const handleApplyGridParams = (e) => {
     if (e) e.preventDefault();
@@ -896,6 +888,23 @@ export default function OpesVisualizer() {
                     >
                       <RotateCcw size={13} />
                     </button>
+
+                    {/* Speed Multiplier */}
+                    <div className="flex bg-slate-900 p-0.5 rounded-lg border border-slate-800 text-[10px] font-mono ml-1">
+                      {[0.25, 0.5, 1, 2, 5].map((s) => (
+                        <button
+                          key={s}
+                          onClick={() => setSpeedMultiplier(s)}
+                          className={`px-1.5 py-0.5 rounded transition-all ${
+                            speedMultiplier === s
+                              ? "bg-amber-500 text-slate-950 font-bold shadow-sm"
+                              : "text-slate-400 hover:text-slate-200"
+                          }`}
+                        >
+                          {s}x
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   <span className="font-mono text-amber-400 font-bold text-xs">
