@@ -25,11 +25,15 @@ function App() {
   const [customBiasFactor, setCustomBiasFactor] = useState("");
   const [gridMinUser, setGridMinUser] = useState("");
   const [gridMaxUser, setGridMaxUser] = useState("");
+  const [gridMin2User, setGridMin2User] = useState("");
+  const [gridMax2User, setGridMax2User] = useState("");
 
   const [inputNumBins, setInputNumBins] = useState("300");
   const [inputCustomBias, setInputCustomBias] = useState("");
   const [inputGridMin, setInputGridMin] = useState("");
   const [inputGridMax, setInputGridMax] = useState("");
+  const [inputGridMin2, setInputGridMin2] = useState("");
+  const [inputGridMax2, setInputGridMax2] = useState("");
 
   const [energyUnits, setEnergyUnits] = useState("kJ/mol");
   const [energyRefMode, setEnergyRefMode] = useState("plateauZero"); // "raw" | "minZero" | "plateauZero"
@@ -44,13 +48,19 @@ function App() {
     setCustomBiasFactor(inputCustomBias);
     setGridMinUser(inputGridMin);
     setGridMaxUser(inputGridMax);
+    setGridMin2User(inputGridMin2);
+    setGridMax2User(inputGridMax2);
   };
 
   const handleResetGridBounds = () => {
     setInputGridMin("");
     setInputGridMax("");
+    setInputGridMin2("");
+    setInputGridMax2("");
     setGridMinUser("");
     setGridMaxUser("");
+    setGridMin2User("");
+    setGridMax2User("");
   };
 
   return (
@@ -225,8 +235,12 @@ function App() {
               customBiasFactor={customBiasFactor}
               gridMinUser={gridMinUser}
               gridMaxUser={gridMaxUser}
+              gridMin2User={gridMin2User}
+              gridMax2User={gridMax2User}
               setGridMinUser={setGridMinUser}
               setGridMaxUser={setGridMaxUser}
+              setGridMin2User={setGridMin2User}
+              setGridMax2User={setGridMax2User}
               energyUnits={energyUnits}
               setEnergyUnits={setEnergyUnits}
               energyRefMode={energyRefMode}
@@ -241,6 +255,10 @@ function App() {
               setInputGridMin={setInputGridMin}
               inputGridMax={inputGridMax}
               setInputGridMax={setInputGridMax}
+              inputGridMin2={inputGridMin2}
+              setInputGridMin2={setInputGridMin2}
+              inputGridMax2={inputGridMax2}
+              setInputGridMax2={setInputGridMax2}
               handleApplyGridParams={handleApplyGridParams}
               handleResetGridBounds={handleResetGridBounds}
               hillsMetadata={hillsMetadata}

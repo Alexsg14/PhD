@@ -453,6 +453,8 @@ function createHillsWorker() {
     const energyUnits = e.data.energyUnits || "kJ/mol";
     const gridMinUser = e.data.gridMinUser;
     const gridMaxUser = e.data.gridMaxUser;
+    const gridMin2User = e.data.gridMin2User;
+    const gridMax2User = e.data.gridMax2User;
 
     let fieldNames = [];
     let headerMeta = {};
@@ -746,8 +748,10 @@ function createHillsWorker() {
       let gridMin2 = minCV2 - 4 * avgSig2;
       let gridMax2 = maxCV2 + 4 * avgSig2;
 
-      if (gridMinUser !== "" && !isNaN(parseFloat(gridMinUser))) gridMin1 = parseFloat(gridMinUser);
-      if (gridMaxUser !== "" && !isNaN(parseFloat(gridMaxUser))) gridMax1 = parseFloat(gridMaxUser);
+      if (gridMinUser !== "" && gridMinUser !== undefined && !isNaN(parseFloat(gridMinUser))) gridMin1 = parseFloat(gridMinUser);
+      if (gridMaxUser !== "" && gridMaxUser !== undefined && !isNaN(parseFloat(gridMaxUser))) gridMax1 = parseFloat(gridMaxUser);
+      if (gridMin2User !== "" && gridMin2User !== undefined && !isNaN(parseFloat(gridMin2User))) gridMin2 = parseFloat(gridMin2User);
+      if (gridMax2User !== "" && gridMax2User !== undefined && !isNaN(parseFloat(gridMax2User))) gridMax2 = parseFloat(gridMax2User);
 
       const stepX = (gridMax1 - gridMin1) / (numBinsX - 1);
       const stepY = (gridMax2 - gridMin2) / (numBinsY - 1);
@@ -973,7 +977,9 @@ function Canvas2DHeatmap({
   energyUnits,
   cvNames,
   hills,
-  colorPalette
+  colorPalette,
+  onSelect2DROI,
+  onResetZoom
 }) {
   const canvasRef = useRef(null);
   const [hoverInfo, setHoverInfo] = useState(null);
@@ -981,6 +987,11 @@ function Canvas2DHeatmap({
   const [useAutoCmapColor, setUseAutoCmapColor] = useState(true);
   const [customTrajectoryColor, setCustomTrajectoryColor] = useState("#00b3ff");
   const [projMode, setProjMode] = useState("int"); // "int" (Boltzmann kBT) or "min" (Minimum energy path)
+
+  // Interactive 2D ROI Mouse Selection State
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState(null);
+  const [dragCurrent, setDragCurrent] = useState(null);
 
   const unitScale = energyUnits === "kcal/mol" ? 0.239006 : 1.0;
 
@@ -1095,7 +1106,7 @@ function Canvas2DHeatmap({
       ctx.fillStyle = "#38bdf8";
       ctx.font = "bold 10px Inter, sans-serif";
       ctx.textAlign = "left";
-      ctx.fillText(`F(${cvNames[0] || "CV1"}) 1D Projection [${projMode === "int" ? "k_BT Int" : "Min Path"}]`, padLeft + 6, topY1 + 12);
+      ctx.fillText(`F(${cvNames[0] || "CV1"}) 1D Projection [${projMode === "int" ? "k_B T Int" : "Min Path"}]`, padLeft + 6, topY1 + 12);
 
       // Area Fill
       ctx.beginPath();
@@ -1344,7 +1355,7 @@ function Canvas2DHeatmap({
     }
 
     // --- 6. INTERACTIVE HOVER CROSSHAIR & TARGET DOT ---
-    if (hoverInfo && hoverInfo.canvasX >= padLeft && hoverInfo.canvasX <= padLeft + plotW &&
+    if (!isDragging && hoverInfo && hoverInfo.canvasX >= padLeft && hoverInfo.canvasX <= padLeft + plotW &&
       hoverInfo.canvasY >= padTop && hoverInfo.canvasY <= padTop + plotH) {
       const hx = hoverInfo.canvasX;
       const hy = hoverInfo.canvasY;
@@ -1378,10 +1389,26 @@ function Canvas2DHeatmap({
       ctx.lineWidth = 1.5;
       ctx.stroke();
     }
-  }, [frameData, energyRefMode, energyUnits, cvNames, hills, colorPalette, showTrajectory, useAutoCmapColor, customTrajectoryColor, projMode, hoverInfo]);
 
-  const handleMouseMove = (e) => {
-    if (!canvasRef.current || !frameData || !frameData.grid2DFlat) return;
+    // --- 7. INTERACTIVE MOUSE DRAG SELECTION BOX (2D ROI ZOOM) ---
+    if (isDragging && dragStart && dragCurrent) {
+      const x1 = Math.min(dragStart.x, dragCurrent.x);
+      const x2 = Math.max(dragStart.x, dragCurrent.x);
+      const y1 = Math.min(dragStart.y, dragCurrent.y);
+      const y2 = Math.max(dragStart.y, dragCurrent.y);
+
+      ctx.fillStyle = "rgba(56, 189, 248, 0.28)";
+      ctx.fillRect(x1, y1, x2 - x1, y2 - y1);
+      ctx.strokeStyle = "#38bdf8";
+      ctx.lineWidth = 1.8;
+      ctx.setLineDash([4, 4]);
+      ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+      ctx.setLineDash([]);
+    }
+  }, [frameData, energyRefMode, energyUnits, cvNames, hills, colorPalette, showTrajectory, useAutoCmapColor, customTrajectoryColor, projMode, hoverInfo, isDragging, dragStart, dragCurrent]);
+
+  const handleMouseDown = (e) => {
+    if (!canvasRef.current || !frameData) return;
     const rect = canvasRef.current.getBoundingClientRect();
     const scaleX = canvasRef.current.width / rect.width;
     const scaleY = canvasRef.current.height / rect.height;
@@ -1398,15 +1425,47 @@ function Canvas2DHeatmap({
     const plotW = width - padLeft - padRight;
     const plotH = height - padTop - padBottom;
 
-    if (x < padLeft || x > padLeft + plotW || y < padTop || y > padTop + plotH) {
+    if (x >= padLeft && x <= padLeft + plotW && y >= padTop && y <= padTop + plotH) {
+      setIsDragging(true);
+      setDragStart({ x, y });
+      setDragCurrent({ x, y });
+    }
+  };
+
+  const handleMouseMove = (e) => {
+    if (!canvasRef.current || !frameData || !frameData.grid2DFlat) return;
+    const rect = canvasRef.current.getBoundingClientRect();
+    const scaleX = canvasRef.current.width / rect.width;
+    const scaleY = canvasRef.current.height / rect.height;
+
+    const rawX = (e.clientX - rect.left) * scaleX;
+    const rawY = (e.clientY - rect.top) * scaleY;
+
+    const padLeft = 60;
+    const padRight = 145;
+    const padTop = 90;
+    const padBottom = 58;
+    const width = canvasRef.current.width;
+    const height = canvasRef.current.height;
+    const plotW = width - padLeft - padRight;
+    const plotH = height - padTop - padBottom;
+
+    const x = Math.min(padLeft + plotW, Math.max(padLeft, rawX));
+    const y = Math.min(padTop + plotH, Math.max(padTop, rawY));
+
+    if (isDragging) {
+      setDragCurrent({ x, y });
+    }
+
+    if (rawX < padLeft || rawX > padLeft + plotW || rawY < padTop || rawY > padTop + plotH) {
       setHoverInfo(null);
       return;
     }
 
     const { numBinsX, numBinsY, gridMin1, gridMax1, gridMin2, gridMax2, grid2DFlat, projCV1, projCV2 } = frameData;
 
-    const normX = (x - padLeft) / plotW;
-    const normY = (padTop + plotH - y) / plotH;
+    const normX = (rawX - padLeft) / plotW;
+    const normY = (padTop + plotH - rawY) / plotH;
 
     const cv1Val = gridMin1 + normX * (gridMax1 - gridMin1);
     const cv2Val = gridMin2 + normY * (gridMax2 - gridMin2);
@@ -1423,14 +1482,54 @@ function Canvas2DHeatmap({
     const proj2Val = projCV2 && projCV2[binJ] ? projCV2[binJ][modeKey] : null;
 
     setHoverInfo({
-      canvasX: x,
-      canvasY: y,
+      canvasX: rawX,
+      canvasY: rawY,
       cv1: cv1Val.toFixed(3),
       cv2: cv2Val.toFixed(3),
       fes: fesVal,
       proj1: proj1Val,
       proj2: proj2Val
     });
+  };
+
+  const handleMouseUp = () => {
+    if (isDragging && dragStart && dragCurrent && onSelect2DROI && frameData) {
+      const dx = Math.abs(dragCurrent.x - dragStart.x);
+      const dy = Math.abs(dragCurrent.y - dragStart.y);
+      if (dx > 6 && dy > 6) {
+        const padLeft = 60;
+        const padRight = 145;
+        const padTop = 90;
+        const padBottom = 58;
+        const width = canvasRef.current.width;
+        const height = canvasRef.current.height;
+        const plotW = width - padLeft - padRight;
+        const plotH = height - padTop - padBottom;
+
+        const x1 = Math.min(dragStart.x, dragCurrent.x);
+        const x2 = Math.max(dragStart.x, dragCurrent.x);
+        const y1 = Math.min(dragStart.y, dragCurrent.y);
+        const y2 = Math.max(dragStart.y, dragCurrent.y);
+
+        const { gridMin1, gridMax1, gridMin2, gridMax2 } = frameData;
+
+        const normX1 = (x1 - padLeft) / plotW;
+        const normX2 = (x2 - padLeft) / plotW;
+
+        const normY_bottom = (padTop + plotH - y2) / plotH;
+        const normY_top = (padTop + plotH - y1) / plotH;
+
+        const cv1Min = (gridMin1 + normX1 * (gridMax1 - gridMin1)).toFixed(3);
+        const cv1Max = (gridMin1 + normX2 * (gridMax1 - gridMin1)).toFixed(3);
+        const cv2Min = (gridMin2 + normY_bottom * (gridMax2 - gridMin2)).toFixed(3);
+        const cv2Max = (gridMin2 + normY_top * (gridMax2 - gridMin2)).toFixed(3);
+
+        onSelect2DROI(cv1Min, cv1Max, cv2Min, cv2Max);
+      }
+    }
+    setIsDragging(false);
+    setDragStart(null);
+    setDragCurrent(null);
   };
 
   const handleExportProj = (cvIdx) => {
@@ -1482,50 +1581,52 @@ function Canvas2DHeatmap({
           </label>
 
           {showTrajectory && (
-            <div className="flex items-center gap-2 bg-slate-950/80 px-2.5 py-1 rounded-xl border border-slate-800 text-slate-300 text-xs">
-              <label className="flex items-center gap-1.5 cursor-pointer">
+            <div className="flex items-center gap-2 bg-slate-950/80 px-2.5 py-1 rounded-xl border border-slate-800 text-xs">
+              <label className="flex items-center gap-1.5 cursor-pointer text-slate-400">
                 <input
                   type="checkbox"
                   checked={useAutoCmapColor}
                   onChange={(e) => setUseAutoCmapColor(e.target.checked)}
                   className="accent-indigo-500 rounded"
                 />
-                <span className="text-[11px] font-medium">Auto Cmap Color</span>
+                <span>Auto-Contrast Color</span>
               </label>
+
               {!useAutoCmapColor && (
-                <div className="flex items-center gap-1 ml-1 border-l border-slate-800 pl-2">
+                <div className="flex items-center gap-1 border-l border-slate-800 pl-2">
                   <span className="text-[10px] text-slate-400">Color:</span>
                   <input
                     type="color"
                     value={customTrajectoryColor}
                     onChange={(e) => setCustomTrajectoryColor(e.target.value)}
                     className="w-5 h-5 bg-transparent border-0 cursor-pointer rounded overflow-hidden"
-                    title="Custom trajectory color"
                   />
                 </div>
               )}
             </div>
           )}
+        </div>
 
-          {/* Projection Mode Switch */}
-          <div className="flex bg-slate-950/90 p-0.5 rounded-xl border border-slate-800 text-[11px]">
+        <div className="flex items-center gap-2">
+          {/* 1D Projection Mode Toggle */}
+          <div className="flex items-center bg-slate-950/80 p-0.5 rounded-xl border border-slate-800 text-[11px]">
             <button
               onClick={() => setProjMode("int")}
               className={`px-2.5 py-1 rounded-lg font-bold transition-all ${projMode === "int"
-                  ? "bg-indigo-600 text-white shadow-sm"
+                  ? "bg-cyan-600 text-white shadow-sm"
                   : "text-slate-400 hover:text-slate-200"
                 }`}
-              title="Boltzmann integration: F(s1) = -kBT ln Sum exp(-F/kBT)"
+              title="Boltzmann integration: F(s₁) = -k_B T ln Σ exp(-F/k_B T)"
             >
-              Boltzmann (k_B T)
+              Boltzmann (k<sub>B</sub>T)
             </button>
             <button
               onClick={() => setProjMode("min")}
               className={`px-2.5 py-1 rounded-lg font-bold transition-all ${projMode === "min"
-                  ? "bg-indigo-600 text-white shadow-sm"
+                  ? "bg-cyan-600 text-white shadow-sm"
                   : "text-slate-400 hover:text-slate-200"
                 }`}
-              title="Minimum energy path: F_min(s1) = min_s2 F(s1, s2)"
+              title="Minimum energy path: F_min(s₁) = min_s₂ F(s₁, s₂)"
             >
               Minimum Path
             </button>
@@ -1547,6 +1648,16 @@ function Canvas2DHeatmap({
           >
             <Download size={12} /> Export {cvNames[1] || "CV2"} .dat
           </button>
+
+          {onResetZoom && (
+            <button
+              onClick={onResetZoom}
+              className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700/60 rounded-xl text-[11px] font-semibold flex items-center gap-1 transition-all shadow-sm"
+              title="Reset Zoom / Clear 2D ROI (Double-click canvas to reset)"
+            >
+              <RotateCcw size={12} className="text-amber-400" /> Reset Zoom
+            </button>
+          )}
         </div>
 
         {hoverInfo ? (
@@ -1556,17 +1667,23 @@ function Canvas2DHeatmap({
             <span className="text-rose-400 font-bold">F 2D: {hoverInfo.fes} {energyUnits}</span>
           </div>
         ) : (
-          <span className="text-[11px] text-slate-400 font-mono italic">Hover over Joint Plot for 1D/2D energy inspection</span>
+          <span className="text-[11px] text-slate-400 font-mono italic">Click & drag box to zoom (ROI) • Double-click canvas or click Reset Zoom to revert</span>
         )}
       </div>
 
-      <div className="relative border border-slate-800 rounded-2xl overflow-hidden shadow-2xl bg-slate-950 p-1.5 w-full flex justify-center">
+      <div className="relative border border-slate-800 rounded-2xl overflow-hidden shadow-2xl bg-slate-950 p-1.5 w-full flex justify-center select-none">
         <canvas
           ref={canvasRef}
           width={860}
           height={480}
+          onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
-          onMouseLeave={() => setHoverInfo(null)}
+          onMouseUp={handleMouseUp}
+          onDoubleClick={onResetZoom}
+          onMouseLeave={() => {
+            if (isDragging) handleMouseUp();
+            setHoverInfo(null);
+          }}
           className="cursor-crosshair block rounded-xl max-w-full"
         />
       </div>
@@ -1590,6 +1707,10 @@ function HillsControlPanel({
   setInputGridMin,
   inputGridMax,
   setInputGridMax,
+  inputGridMin2,
+  setInputGridMin2,
+  inputGridMax2,
+  setInputGridMax2,
   handleApplyGridParams,
   handleResetGridBounds,
   hillsMetadata
@@ -1722,7 +1843,7 @@ function HillsControlPanel({
 
             <div className="grid grid-cols-2 gap-2 pt-0.5">
               <div>
-                <label className="block text-[9px] text-slate-400 mb-0.5 font-medium">Min CV1:</label>
+                <label className="block text-[9px] text-cyan-400 mb-0.5 font-medium">Min CV1:</label>
                 <input
                   type="text"
                   placeholder="Auto"
@@ -1732,7 +1853,7 @@ function HillsControlPanel({
                 />
               </div>
               <div>
-                <label className="block text-[9px] text-slate-400 mb-0.5 font-medium">Max CV1:</label>
+                <label className="block text-[9px] text-cyan-400 mb-0.5 font-medium">Max CV1:</label>
                 <input
                   type="text"
                   placeholder="Auto"
@@ -1742,6 +1863,31 @@ function HillsControlPanel({
                 />
               </div>
             </div>
+
+            {hillsMetadata?.is2D && (
+              <div className="grid grid-cols-2 gap-2 pt-0.5">
+                <div>
+                  <label className="block text-[9px] text-purple-400 mb-0.5 font-medium">Min CV2:</label>
+                  <input
+                    type="text"
+                    placeholder="Auto"
+                    value={inputGridMin2 || ""}
+                    onChange={(e) => setInputGridMin2 && setInputGridMin2(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-purple-300 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[9px] text-purple-400 mb-0.5 font-medium">Max CV2:</label>
+                  <input
+                    type="text"
+                    placeholder="Auto"
+                    value={inputGridMax2 || ""}
+                    onChange={(e) => setInputGridMax2 && setInputGridMax2(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-purple-300 font-mono"
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -1772,6 +1918,8 @@ function HillsVisualizerInner({
   customBiasFactor = "",
   gridMinUser = "",
   gridMaxUser = "",
+  gridMin2User = "",
+  gridMax2User = "",
   energyUnits = "kJ/mol",
   setEnergyUnits,
   energyRefMode = "plateauZero",
@@ -1786,11 +1934,17 @@ function HillsVisualizerInner({
   setInputGridMin,
   inputGridMax = "",
   setInputGridMax,
+  inputGridMin2 = "",
+  setInputGridMin2,
+  inputGridMax2 = "",
+  setInputGridMax2,
   handleApplyGridParams: propApplyGridParams,
   handleResetGridBounds: propResetGridBounds,
   hillsMetadata,
   setGridMinUser,
   setGridMaxUser,
+  setGridMin2User,
+  setGridMax2User,
   onMetadataLoaded
 }) {
   const [hillsData, setHillsData] = useState(null);
@@ -1805,7 +1959,23 @@ function HillsVisualizerInner({
   const [colorPalette, setColorPalette] = useState("Inferno");
   const [showMetrics, setShowMetrics] = useState(false);
 
-  // Interactive Mouse Box Zoom State
+  // Fallback state if props are not provided
+  const [internalMin2User, setInternalMin2User] = useState("");
+  const [internalMax2User, setInternalMax2User] = useState("");
+  const [internalInputMin2, setInternalInputMin2] = useState("");
+  const [internalInputMax2, setInternalInputMax2] = useState("");
+
+  const activeGridMin2User = gridMin2User !== undefined ? gridMin2User : internalMin2User;
+  const activeGridMax2User = gridMax2User !== undefined ? gridMax2User : internalMax2User;
+  const activeInputGridMin2 = inputGridMin2 !== undefined ? inputGridMin2 : internalInputMin2;
+  const activeInputGridMax2 = inputGridMax2 !== undefined ? inputGridMax2 : internalInputMax2;
+
+  const actualSetGridMin2User = setGridMin2User || setInternalMin2User;
+  const actualSetGridMax2User = setGridMax2User || setInternalMax2User;
+  const actualSetInputGridMin2 = setInputGridMin2 || setInternalInputMin2;
+  const actualSetInputGridMax2 = setInputGridMax2 || setInternalInputMax2;
+
+  // Interactive Mouse Box Zoom State (1D)
   const [refAreaLeft, setRefAreaLeft] = useState("");
   const [refAreaRight, setRefAreaRight] = useState("");
 
@@ -1823,8 +1993,24 @@ function HillsVisualizerInner({
     if (setInputGridMax) setInputGridMax("");
     if (setGridMinUser) setGridMinUser("");
     if (setGridMaxUser) setGridMaxUser("");
+    actualSetInputGridMin2("");
+    actualSetInputGridMax2("");
+    actualSetGridMin2User("");
+    actualSetGridMax2User("");
   });
   const handleApplyGridParams = propApplyGridParams || ((e) => e?.preventDefault());
+
+  const handleSelect2DROI = (min1, max1, min2, max2) => {
+    if (setGridMinUser) setGridMinUser(min1);
+    if (setGridMaxUser) setGridMaxUser(max1);
+    if (setInputGridMin) setInputGridMin(min1);
+    if (setInputGridMax) setInputGridMax(max1);
+
+    actualSetGridMin2User(min2);
+    actualSetGridMax2User(max2);
+    actualSetInputGridMin2(min2);
+    actualSetInputGridMax2(max2);
+  };
 
   // Mouse Drag Zoom Handlers
   const handleMouseDown = (e) => {
@@ -1950,7 +2136,9 @@ function HillsVisualizerInner({
       customBiasFactor,
       energyUnits,
       gridMinUser,
-      gridMaxUser
+      gridMaxUser,
+      gridMin2User: activeGridMin2User,
+      gridMax2User: activeGridMax2User
     });
   };
 
@@ -1963,7 +2151,7 @@ function HillsVisualizerInner({
     if (activeFileRef.current) {
       processHillsFileObj(activeFileRef.current);
     }
-  }, [numBins, isWtScaling, customBiasFactor, gridMinUser, gridMaxUser]);
+  }, [numBins, isWtScaling, customBiasFactor, gridMinUser, gridMaxUser, activeGridMin2User, activeGridMax2User]);
 
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
@@ -2351,6 +2539,10 @@ function HillsVisualizerInner({
               setInputGridMin={setInputGridMin}
               inputGridMax={inputGridMax}
               setInputGridMax={setInputGridMax}
+              inputGridMin2={activeInputGridMin2}
+              setInputGridMin2={actualSetInputGridMin2}
+              inputGridMax2={activeInputGridMax2}
+              setInputGridMax2={actualSetInputGridMax2}
               handleApplyGridParams={handleApplyGridParams}
               handleResetGridBounds={handleResetGridBounds}
               hillsMetadata={hillsMetadata}
@@ -2527,16 +2719,20 @@ function HillsVisualizerInner({
                   </h2>
                   <p className="text-slate-400 text-xs mt-0.5">
                     {hillsData.is2D
-                      ? "2D Free Energy Surface reconstructed from 2D Gaussian HILLS summation"
+                      ? "Click and drag a box across the 2D heatmap to select a 2D zoom region (ROI)"
                       : "Click and drag across the chart to select a vertical zoom region (ROI) for export"}
                   </p>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {!hillsData.is2D && (gridMinUser || gridMaxUser) && (
+                  {(gridMinUser || gridMaxUser || activeGridMin2User || activeGridMax2User) && (
                     <div className="flex items-center gap-2 bg-cyan-950/90 border border-cyan-600/70 px-3 py-1 rounded-xl text-xs text-cyan-300 font-mono shadow-sm">
                       <ZoomIn size={14} className="text-cyan-400 animate-pulse" />
-                      <span>ROI: [{gridMinUser || "Min"}, {gridMaxUser || "Max"}]</span>
+                      <span>
+                        {hillsData.is2D
+                          ? `ROI CV1: [${gridMinUser || "Min"}, ${gridMaxUser || "Max"}] • CV2: [${activeGridMin2User || "Min"}, ${activeGridMax2User || "Max"}]`
+                          : `ROI: [${gridMinUser || "Min"}, ${gridMaxUser || "Max"}]`}
+                      </span>
                       <button
                         onClick={handleResetGridBounds}
                         className="ml-1 text-slate-400 hover:text-white font-bold p-0.5 rounded"
@@ -2732,6 +2928,7 @@ function HillsVisualizerInner({
                   cvNames={hillsData.cvNames}
                   hills={hillsData.hills}
                   colorPalette={colorPalette}
+                  onSelect2DROI={handleSelect2DROI}
                 />
               )}
 
