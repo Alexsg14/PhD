@@ -588,13 +588,46 @@ function createHillsWorker() {
 
     self.postMessage({ progress: 46 });
 
-    // Chronological sorting directly on raw number arrays (Fast & memory light)
-    rawRows.sort((a, b) => (a[timeIdx] ?? 0) - (b[timeIdx] ?? 0));
+    // Multi-walker detection BEFORE sorting
+    let detectedWalkers = 1;
 
-    self.postMessage({ progress: 48 });
+    // A. Initial timestamp duplicates
+    let initSameCount = 1;
+    const t0Val = rawRows[0] ? (rawRows[0][timeIdx] ?? 0) : 0;
+    const t0Rounded = Math.round(t0Val * 100) / 100;
+    while (
+      initSameCount < rawRows.length &&
+      Math.round((rawRows[initSameCount][timeIdx] ?? 0) * 100) / 100 === t0Rounded
+    ) {
+      initSameCount++;
+    }
 
-    const totalOriginalHills = rawRows.length;
-    const strideFactor = 1;
+    // B. Timestamp drops (block multiwalker)
+    const blockStartIndices = [0];
+    for (let i = 1; i < rawRows.length; i++) {
+      if ((rawRows[i][timeIdx] ?? 0) < (rawRows[i - 1][timeIdx] ?? 0)) {
+        blockStartIndices.push(i);
+      }
+    }
+
+    // C. Unique time count ratio
+    const uniqueTimeSet = new Set();
+    for (let i = 0; i < rawRows.length; i++) {
+      uniqueTimeSet.add(Math.round((rawRows[i][timeIdx] ?? 0) * 100) / 100);
+    }
+    const uniqueCount = uniqueTimeSet.size || 1;
+    const ratioWalkers = Math.round(rawRows.length / uniqueCount);
+
+    if (blockStartIndices.length > 1) {
+      detectedWalkers = blockStartIndices.length;
+    } else if (initSameCount > 1) {
+      detectedWalkers = initSameCount;
+    } else if (ratioWalkers >= 2) {
+      detectedWalkers = ratioWalkers;
+    }
+
+    const isBlockStructure = blockStartIndices.length > 1 && blockStartIndices.length === detectedWalkers;
+    const blockSize = isBlockStructure ? Math.ceil(rawRows.length / detectedWalkers) : 1;
 
     const parsedHills = rawRows.map((row, rowIdx) => {
       const timeVal = row[timeIdx] ?? rowIdx * 10;
@@ -604,15 +637,33 @@ function createHillsWorker() {
       const cvVals = cvIndices.map((ci) => row[ci] ?? 0.0);
       const sigmaVals = sigmaIndices.map((si) => row[si] ?? 0.1);
 
+      let wId = 1;
+      if (detectedWalkers > 1) {
+        if (isBlockStructure) {
+          wId = Math.min(detectedWalkers, Math.floor(rowIdx / blockSize) + 1);
+        } else {
+          wId = (rowIdx % detectedWalkers) + 1;
+        }
+      }
+
       return {
         step: rowIdx + 1,
         time: timeVal,
         cvs: cvVals,
         sigmas: sigmaVals,
         height: heightVal,
-        biasf: biasfVal
+        biasf: biasfVal,
+        walkerId: wId
       };
     });
+
+    // Chronological sorting directly on raw number arrays (Fast & memory light)
+    rawRows.sort((a, b) => (a[timeIdx] ?? 0) - (b[timeIdx] ?? 0));
+
+    self.postMessage({ progress: 48 });
+
+    const totalOriginalHills = parsedHills.length;
+    const strideFactor = 1;
 
     self.postMessage({ progress: 50 });
 
@@ -939,15 +990,13 @@ function createHillsWorker() {
       }
     }
 
-    // Downsample hills array to max 1,000 points before posting to main thread
-    // (prevents V8 heap memory exhaustion & SIGILL tab crashes when handling millions of hills)
+    // Pass parsedHills (or max 20,000 per walker for multiwalker) so trajectory lines stay 100% intact
     let UIHills = parsedHills;
-    if (parsedHills.length > 1000) {
-      const step = parsedHills.length / 1000;
+    if (parsedHills.length > 30000) {
+      const step = Math.ceil(parsedHills.length / 30000);
       UIHills = [];
-      for (let i = 0; i < 1000; i++) {
-        const idx = Math.min(parsedHills.length - 1, Math.floor(i * step));
-        UIHills.push(parsedHills[idx]);
+      for (let i = 0; i < parsedHills.length; i += step) {
+        UIHills.push(parsedHills[i]);
       }
     }
 
@@ -957,6 +1006,7 @@ function createHillsWorker() {
         fieldNames,
         cvNames,
         is2D,
+        numWalkers: detectedWalkers,
         hills: UIHills,
         totalHills: totalOriginalHills,
         strideFactor: 1,
@@ -1616,8 +1666,8 @@ function Canvas2DHeatmap({
             <button
               onClick={() => setProjMode("int")}
               className={`px-2.5 py-1 rounded-lg font-bold transition-all ${projMode === "int"
-                  ? "bg-cyan-600 text-white shadow-sm"
-                  : "text-slate-400 hover:text-slate-200"
+                ? "bg-cyan-600 text-white shadow-sm"
+                : "text-slate-400 hover:text-slate-200"
                 }`}
               title="Boltzmann integration: F(s₁) = -k_B T ln Σ exp(-F/k_B T)"
             >
@@ -1626,8 +1676,8 @@ function Canvas2DHeatmap({
             <button
               onClick={() => setProjMode("min")}
               className={`px-2.5 py-1 rounded-lg font-bold transition-all ${projMode === "min"
-                  ? "bg-cyan-600 text-white shadow-sm"
-                  : "text-slate-400 hover:text-slate-200"
+                ? "bg-cyan-600 text-white shadow-sm"
+                : "text-slate-400 hover:text-slate-200"
                 }`}
               title="Minimum energy path: F_min(s₁) = min_s₂ F(s₁, s₂)"
             >
@@ -1966,6 +2016,7 @@ function HillsVisualizerInner({
   const [showCV1, setShowCV1] = useState(true);
   const [showCV2, setShowCV2] = useState(true);
   const [numWalkersOverride, setNumWalkersOverride] = useState("auto");
+  const [timeUnit, setTimeUnit] = useState("ns"); // Always "ns"
 
   // Fallback state if props are not provided
   const [internalMin2User, setInternalMin2User] = useState("");
@@ -2303,59 +2354,67 @@ function HillsVisualizerInner({
 
     const hills = hillsData.hills;
 
-    let numWalkers = 1;
-    let seriesList = [];
+    // 1. Ratio of total hills to unique rounded timestamps (universal formula for multiwalker)
+    const uniqueTimesSet = new Set();
+    for (let i = 0; i < hills.length; i++) {
+      uniqueTimesSet.add(Math.round(hills[i].time * 100) / 100);
+    }
+    const uniqueCount = uniqueTimesSet.size || 1;
+    const ratio = hills.length / uniqueCount;
+    const ratioWalkers = ratio >= 1.5 ? Math.round(ratio) : 1;
 
-    if (numWalkersOverride !== "auto" && !isNaN(parseInt(numWalkersOverride))) {
-      numWalkers = Math.max(1, parseInt(numWalkersOverride));
-      seriesList = Array.from({ length: numWalkers }, () => []);
-      for (let i = 0; i < hills.length; i++) {
-        const w = i % numWalkers;
-        seriesList[w].push(hills[i]);
+    // 2. Count initial consecutive hills sharing the same initial timestamp
+    let initialSameTimeCount = 0;
+    if (hills.length > 0) {
+      const t0Rounded = Math.round(hills[0].time * 100) / 100;
+      while (
+        initialSameTimeCount < hills.length &&
+        Math.round(hills[initialSameTimeCount].time * 100) / 100 === t0Rounded
+      ) {
+        initialSameTimeCount++;
+      }
+    }
+
+    // 3. Check for timestamp drops (consecutive blocks per walker)
+    const blockStartIndices = [0];
+    for (let i = 1; i < hills.length; i++) {
+      if (hills[i].time < hills[i - 1].time) {
+        blockStartIndices.push(i);
+      }
+    }
+
+    let detectedWalkers = hillsData.numWalkers || Math.max(ratioWalkers, initialSameTimeCount, blockStartIndices.length);
+    if (!detectedWalkers || isNaN(detectedWalkers) || detectedWalkers < 1) detectedWalkers = 1;
+
+    const numWalkers = detectedWalkers;
+
+    let seriesList = Array.from({ length: numWalkers }, () => []);
+
+    if (numWalkers === 1) {
+      seriesList = [hills];
+    } else if (blockStartIndices.length === numWalkers && blockStartIndices.length > 1) {
+      for (let w = 0; w < blockStartIndices.length; w++) {
+        const start = blockStartIndices[w];
+        const end = w + 1 < blockStartIndices.length ? blockStartIndices[w + 1] : hills.length;
+        seriesList.push(hills.slice(start, end));
       }
     } else {
-      // Automatic detection:
-      // 1. Check if there are timestamp drops (consecutive blocks per walker)
-      const blockStartIndices = [0];
-      for (let i = 1; i < hills.length; i++) {
-        if (hills[i].time < hills[i - 1].time) {
-          blockStartIndices.push(i);
-        }
-      }
-
-      if (blockStartIndices.length > 1) {
-        for (let w = 0; w < blockStartIndices.length; w++) {
-          const start = blockStartIndices[w];
-          const end = w + 1 < blockStartIndices.length ? blockStartIndices[w + 1] : hills.length;
-          seriesList.push(hills.slice(start, end));
-        }
-        numWalkers = seriesList.length;
-      } else {
-        // 2. Check for identical initial timestamps (interleaved per timestep)
-        let initialSameTimeCount = 1;
-        const t0 = hills[0].time;
-        while (initialSameTimeCount < hills.length && Math.abs(hills[initialSameTimeCount].time - t0) < 1e-5) {
-          initialSameTimeCount++;
-        }
-
-        if (initialSameTimeCount > 1) {
-          numWalkers = initialSameTimeCount;
-          seriesList = Array.from({ length: numWalkers }, () => []);
-          for (let i = 0; i < hills.length; i++) {
-            const w = i % numWalkers;
-            seriesList[w].push(hills[i]);
-          }
+      for (let i = 0; i < hills.length; i++) {
+        const h = hills[i];
+        let wIdx = 0;
+        if (h.walkerId !== undefined) {
+          wIdx = Math.min(numWalkers - 1, Math.max(0, h.walkerId - 1));
         } else {
-          numWalkers = 1;
-          seriesList = [hills];
+          wIdx = i % numWalkers;
         }
+        seriesList[wIdx].push(h);
       }
     }
 
     // Convert each walker's hills array into chart data points downsampled for performance
     const walkerSeries = seriesList.map((wHills, wIdx) => {
       const formatted = wHills.map((h) => ({
-        time: h.time,
+        time: parseFloat((h.time / 1000).toFixed(4)),
         cv1: h.cvs[0],
         cv2: hillsData.is2D ? h.cvs[1] : undefined
       }));
@@ -2397,7 +2456,7 @@ function HillsVisualizerInner({
     });
 
     return { numWalkers, walkerSeries };
-  }, [hillsData, numWalkersOverride, showCV1, showCV2]);
+  }, [hillsData, showCV1, showCV2, timeUnit]);
 
   const stats = useMemo(() => {
     if (!hillsData || !hillsData.hills || hillsData.hills.length === 0) return null;
@@ -3092,7 +3151,7 @@ function HillsVisualizerInner({
             </div>
           )}
 
-          {/* TAB 3: Collective Variable Trajectory s(t) & Multi-Walker Subplots */}
+          {/* TAB 3: Collective Variable Trajectory s(t) & Multi-Walker Matrix Grid Subplots */}
           {hillsData && activeTab === "cv" && (
             <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4 w-full">
               <div className="flex flex-wrap justify-between items-center border-b border-slate-800 pb-3 gap-3">
@@ -3102,7 +3161,7 @@ function HillsVisualizerInner({
                     {hillsData.is2D ? "Collective Variables Trajectory (CV1, CV2) Over Time" : "Collective Variable Trajectory s(t) Over Time"}
                   </h2>
                   <p className="text-slate-400 text-xs mt-0.5">
-                    Shows system diffusion along reaction coordinate(s). Multi-walker HILLS are split into subplots.
+                    Shows system diffusion along reaction coordinate(s). Multi-walker HILLS are rendered in subplots.
                   </p>
                 </div>
 
@@ -3111,11 +3170,10 @@ function HillsVisualizerInner({
                   <div className="flex items-center gap-1.5 bg-slate-950/80 p-1 rounded-xl border border-slate-800 text-xs">
                     <button
                       onClick={() => setShowCV1(!showCV1)}
-                      className={`px-2.5 py-1 rounded-lg font-bold flex items-center gap-1.5 transition-all text-xs ${
-                        showCV1
-                          ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 shadow-sm"
-                          : "text-slate-500 hover:text-slate-300 border border-transparent"
-                      }`}
+                      className={`px-2.5 py-1 rounded-lg font-bold flex items-center gap-1.5 transition-all text-xs ${showCV1
+                        ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 shadow-sm"
+                        : "text-slate-500 hover:text-slate-300 border border-transparent"
+                        }`}
                       title="Toggle CV1 Visibility"
                     >
                       {showCV1 ? <Eye size={13} className="text-emerald-400" /> : <EyeOff size={13} />}
@@ -3125,11 +3183,10 @@ function HillsVisualizerInner({
                     {hillsData.is2D && (
                       <button
                         onClick={() => setShowCV2(!showCV2)}
-                        className={`px-2.5 py-1 rounded-lg font-bold flex items-center gap-1.5 transition-all text-xs ${
-                          showCV2
-                            ? "bg-purple-500/20 text-purple-300 border border-purple-500/50 shadow-sm"
-                            : "text-slate-500 hover:text-slate-300 border border-transparent"
-                        }`}
+                        className={`px-2.5 py-1 rounded-lg font-bold flex items-center gap-1.5 transition-all text-xs ${showCV2
+                          ? "bg-purple-500/20 text-purple-300 border border-purple-500/50 shadow-sm"
+                          : "text-slate-500 hover:text-slate-300 border border-transparent"
+                          }`}
                         title="Toggle CV2 Visibility"
                       >
                         {showCV2 ? <Eye size={13} className="text-purple-400" /> : <EyeOff size={13} />}
@@ -3138,65 +3195,68 @@ function HillsVisualizerInner({
                     )}
                   </div>
 
-                  {/* Walkers Override Selector */}
-                  <div className="flex items-center gap-1.5 bg-slate-950/80 px-2.5 py-1 rounded-xl border border-slate-800 text-xs text-slate-300">
-                    <Users size={14} className="text-indigo-400" />
+                  {/* Walkers Badge */}
+                  <div className="flex items-center gap-1.5 bg-slate-950/80 px-2.5 py-1 rounded-xl border border-slate-800 text-xs text-slate-300 font-mono">
+                    <Users size={14} className={walkerParsedData.numWalkers > 1 ? "text-indigo-400" : "text-emerald-400"} />
                     <span className="text-[11px] font-medium text-slate-400">Walkers:</span>
-                    <select
-                      value={numWalkersOverride}
-                      onChange={(e) => setNumWalkersOverride(e.target.value)}
-                      className="bg-slate-900 border border-slate-800 text-slate-200 text-xs rounded-lg px-2 py-0.5 outline-none font-mono"
-                    >
-                      <option value="auto">Auto ({walkerParsedData.numWalkers})</option>
-                      <option value="1">1 Walker</option>
-                      <option value="2">2 Walkers</option>
-                      <option value="3">3 Walkers</option>
-                      <option value="4">4 Walkers</option>
-                      <option value="6">6 Walkers</option>
-                      <option value="8">8 Walkers</option>
-                      <option value="12">12 Walkers</option>
-                      <option value="16">16 Walkers</option>
-                    </select>
+                    <span className={`font-bold ${walkerParsedData.numWalkers > 1 ? "text-indigo-300" : "text-emerald-300"}`}>
+                      {walkerParsedData.numWalkers} {walkerParsedData.numWalkers === 1 ? "Walker" : "Walkers"}
+                    </span>
                   </div>
                 </div>
               </div>
 
-              {/* Subplots Container */}
-              <div className={`grid gap-5 w-full ${
-                walkerParsedData.numWalkers > 1 ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1"
-              }`}>
+              {/* Subplots Container - Matrix Grid (e.g. 4x4 for 16 walkers) */}
+              <div className={`grid gap-4 w-full ${walkerParsedData.numWalkers === 16
+                ? "grid-cols-1 sm:grid-cols-2 md:grid-cols-4"
+                : walkerParsedData.numWalkers === 9
+                  ? "grid-cols-1 sm:grid-cols-3 md:grid-cols-3"
+                  : walkerParsedData.numWalkers === 4
+                    ? "grid-cols-1 sm:grid-cols-2 md:grid-cols-2"
+                    : walkerParsedData.numWalkers > 1
+                      ? "grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
+                      : "grid-cols-1"
+                }`}>
                 {walkerParsedData.walkerSeries.map((wObj) => (
                   <div
                     key={wObj.walkerId}
-                    className="bg-slate-950/80 border border-slate-800/90 p-4 rounded-xl space-y-2 shadow-lg flex flex-col justify-between"
+                    className="bg-slate-950/80 border border-slate-800/90 p-3 rounded-xl space-y-1 shadow-lg flex flex-col justify-between"
                   >
-                    <div className="flex justify-between items-center border-b border-slate-800/80 pb-2 text-xs">
-                      <div className="flex items-center gap-2">
-                        <span className="px-2 py-0.5 bg-indigo-950 text-indigo-300 border border-indigo-700/60 rounded-lg font-bold font-mono text-[11px]">
-                          Walker {wObj.walkerId}
+                    <div className="flex justify-between items-center border-b border-slate-800/80 pb-1 text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <span className="px-2 py-0.5 bg-indigo-950 text-indigo-300 border border-indigo-700/60 rounded-lg font-bold font-mono text-[12px]">
+                          W {wObj.walkerId}
                         </span>
                         <span className="text-[10px] text-slate-500 font-mono">
-                          {wObj.totalHills} hills
+                          {wObj.totalHills} pts
                         </span>
                       </div>
                       <span className="text-[10px] text-slate-400 font-mono">
-                        Y Range: [{wObj.domainY[0]}, {wObj.domainY[1]}]
+                        Y: [{wObj.domainY[0]}, {wObj.domainY[1]}]
                       </span>
                     </div>
 
-                    <div className={walkerParsedData.numWalkers > 1 ? "h-[280px] w-full pt-1" : "h-[450px] w-full pt-1"}>
+                    <div className={
+                      walkerParsedData.numWalkers >= 9
+                        ? "h-[220px] w-full pt-1"
+                        : walkerParsedData.numWalkers >= 4
+                          ? "h-[260px] w-full pt-1"
+                          : walkerParsedData.numWalkers > 1
+                            ? "h-[280px] w-full pt-1"
+                            : "h-[450px] w-full pt-1"
+                    }>
                       <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={wObj.data} margin={{ top: 10, right: 20, left: 10, bottom: 20 }}>
+                        <LineChart data={wObj.data} margin={{ top: 5, right: 10, left: -15, bottom: 15 }}>
                           <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
                           <XAxis
                             dataKey="time"
                             stroke="#64748b"
-                            tick={{ fill: "#94a3b8", fontSize: 11 }}
-                            label={{ value: "Time (ps)", position: "insideBottom", offset: -12, fill: "#cbd5e1", fontSize: 11 }}
+                            tick={{ fill: "#94a3b8", fontSize: 10 }}
+                            label={{ value: "Time (ns)", position: "insideBottom", offset: -10, fill: "#cbd5e1", fontSize: 10 }}
                           />
                           <YAxis
                             stroke="#64748b"
-                            tick={{ fill: "#94a3b8", fontSize: 11 }}
+                            tick={{ fill: "#94a3b8", fontSize: 10 }}
                             domain={wObj.domainY}
                           />
                           <Tooltip
@@ -3204,9 +3264,9 @@ function HillsVisualizerInner({
                               if (active && payload && payload.length) {
                                 const d = payload[0].payload;
                                 return (
-                                  <div className="bg-slate-950/95 border border-slate-800 p-2.5 rounded-xl shadow-2xl text-xs space-y-1 font-mono">
-                                    <div className="text-cyan-400 font-bold border-b border-slate-800 pb-1">
-                                      Walker {wObj.walkerId} • t = {d.time} ps
+                                  <div className="bg-slate-950/95 border border-slate-800 p-2 rounded-xl shadow-2xl text-[11px] space-y-1 font-mono">
+                                    <div className="text-cyan-400 font-bold border-b border-slate-800 pb-0.5">
+                                      Walker {wObj.walkerId} • {d.time} ns
                                     </div>
                                     {showCV1 && (
                                       <div className="text-emerald-300 font-semibold">
@@ -3224,7 +3284,7 @@ function HillsVisualizerInner({
                               return null;
                             }}
                           />
-                          <Legend verticalAlign="top" height={30} />
+                          <Legend verticalAlign="top" height={25} wrapperStyle={{ fontSize: "11px" }} />
 
                           {showCV1 && (
                             <Line

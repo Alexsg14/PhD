@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { MathBlock, MathInline } from './MathEq';
 import { 
   Play, Pause, RotateCcw, Activity, TrendingUp, Layers, Plus, Trash2, 
@@ -298,6 +298,10 @@ const MetadynamicsLab2D = () => {
   const [currentDepositionHeight, setCurrentDepositionHeight] = useState(0.5);
   const [colvarHistory2D, setColvarHistory2D] = useState([{ step: 0, x: -2, y: -2 }]);
 
+  // 1D Projections Mode (computed inside canvas useEffect)
+  const [projMode, setProjMode] = useState('int'); // 'int' | 'min'
+
+
   // RNG & Seed
   const [seed, setSeed] = useState(12345);
   const [useFixedSeed, setUseFixedSeed] = useState(false);
@@ -500,93 +504,293 @@ const MetadynamicsLab2D = () => {
     initRNG(seed);
   }, [seed]);
 
-  // --- Render 2D Canvas Heatmap ---
+  // --- Render 2D Canvas: Heatmap + Projections (unified, pixel-perfect) ---
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const width = canvas.width;
-    const height = canvas.height;
 
-    const res = 60; // Grid resolution
-    const step = 9.0 / res;
+    const W = canvas.width;   // 680
+    const H = canvas.height;  // 430
 
-    // Calculate energy values over grid
-    const gridVals = [];
-    let minVal = Infinity;
-    let maxVal = -Infinity;
+    // ── Layout margins ────────────────────────────────────────
+    const ML = 50;   // left:   Y-axis tick labels for heatmap
+    const MB = 35;   // bottom: X-axis tick labels for heatmap
+    const MT = 85;   // top:    F(CV₁) projection strip
+    const MR = 115;  // right:  F(CV₂) projection strip
+
+    const hx0 = ML, hx1 = W - MR;   // heatmap x bounds
+    const hy0 = MT, hy1 = H - MB;   // heatmap y bounds
+    const hW  = hx1 - hx0;          // heatmap pixel width
+    const hH  = hy1 - hy0;          // heatmap pixel height
+
+    // CV ↔ canvas pixel transforms (inside heatmap area)
+    // toHX: cv1 ∈ [-4.5,4.5] → px ∈ [hx0, hx1]
+    // toHY: cv2=+4.5 → hy0 (TOP), cv2=-4.5 → hy1 (BOTTOM)
+    const toHX = (x) => hx0 + ((x + 4.5) / 9.0) * hW;
+    const toHY = (y) => hy0 + ((4.5 - y) / 9.0) * hH;
+
+    // ── Clear canvas ─────────────────────────────────────────
+    ctx.fillStyle = '#020817';
+    ctx.fillRect(0, 0, W, H);
+
+    // ── 1. Compute 2D FES grid (res×res) ─────────────────────
+    const res = 60;
+    const gs = 9.0 / res;
+
+    const gridVals = new Float64Array(res * res);
+    let gMin = Infinity, gMax = -Infinity;
 
     for (let gy = 0; gy < res; gy++) {
-      const y = 4.5 - gy * step;
+      const cy = 4.5 - gy * gs;
       for (let gx = 0; gx < res; gx++) {
-        const x = -4.5 + gx * step;
-        let v = 0;
-        const pes = getPES2D(x, y, wells, pesMode, pesFunctionStr);
-        const bias = getBias2D(x, y, biasPotentials);
-
-        if (canvasViewMode === 'pes') v = pes;
-        else if (canvasViewMode === 'bias') v = bias;
+        const cx = -4.5 + gx * gs;
+        const pes  = getPES2D(cx, cy, wells, pesMode, pesFunctionStr);
+        const bias = getBias2D(cx, cy, biasPotentials);
+        let v;
+        if      (canvasViewMode === 'pes')   v = pes;
+        else if (canvasViewMode === 'bias')  v = bias;
         else if (canvasViewMode === 'total') v = pes + bias;
-        else if (canvasViewMode === 'fes') {
-          v = isWellTempered && biasFactor > 1 
-            ? -(biasFactor / (biasFactor - 1)) * bias 
-            : -bias;
-        }
-
-        gridVals.push(v);
-        if (v < minVal) minVal = v;
-        if (v > maxVal) maxVal = v;
+        else v = (isWellTempered && biasFactor > 1)
+          ? -(biasFactor / (biasFactor - 1)) * bias
+          : -bias;
+        gridVals[gy * res + gx] = v;
+        if (v < gMin) gMin = v;
+        if (v > gMax) gMax = v;
       }
     }
 
-    // Draw Heatmap pixels
-    const cellW = width / res;
-    const cellH = height / res;
-
+    // ── 2. Draw heatmap ──────────────────────────────────────────
+    const cW = hW / res;
+    const cH = hH / res;
     for (let gy = 0; gy < res; gy++) {
       for (let gx = 0; gx < res; gx++) {
-        const v = gridVals[gy * res + gx];
-        ctx.fillStyle = getHeatmapColorRGB(v, minVal, maxVal);
-        ctx.fillRect(gx * cellW, gy * cellH, cellW + 0.5, cellH + 0.5);
+        ctx.fillStyle = getHeatmapColorRGB(gridVals[gy * res + gx], gMin, gMax);
+        ctx.fillRect(hx0 + gx * cW, hy0 + gy * cH, cW + 0.5, cH + 0.5);
       }
     }
 
-    // Draw Grid Lines (Subtle)
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+    // ── 3. Subtle grid lines ─────────────────────────────────────
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
     ctx.lineWidth = 1;
     ctx.beginPath();
     for (let i = 0; i <= 8; i++) {
-      const pos = (i / 8) * width;
-      ctx.moveTo(pos, 0); ctx.lineTo(pos, height);
-      ctx.moveTo(0, pos); ctx.lineTo(width, pos);
+      const xp = hx0 + (i / 8) * hW;
+      const yp = hy0 + (i / 8) * hH;
+      ctx.moveTo(xp, hy0); ctx.lineTo(xp, hy1);
+      ctx.moveTo(hx0, yp); ctx.lineTo(hx1, yp);
     }
     ctx.stroke();
 
-    // Map simulation (x, y) [-4.5, 4.5] to canvas (px, py) [0, width]
-    const toCanvasX = (x) => ((x + 4.5) / 9.0) * width;
-    const toCanvasY = (y) => ((4.5 - y) / 9.0) * height;
+    // ── 4. Compute 1D projections from same grid ─────────────────
+    // These are the physically correct projections of the 2D surface:
+    //   F(CV₁) = -kT ln ∫ exp(-F(x,y)/kT) dy   [integrate over y for each x]
+    //   F(CV₂) = -kT ln ∫ exp(-F(x,y)/kT) dx   [integrate over x for each y]
+    const kBT = Math.max(0.01, temperature);
 
-    // Draw Trajectory Path Line (Solid White)
-    if (trajectory.length > 1) {
-      ctx.beginPath();
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.95)';
-      ctx.lineWidth = 2.5;
-      ctx.moveTo(toCanvasX(trajectory[0].x), toCanvasY(trajectory[0].y));
-      for (let p of trajectory) {
-        ctx.lineTo(toCanvasX(p.x), toCanvasY(p.y));
+    // F(CV₁): for each gx column, integrate/min over all gy rows
+    const fProjX = new Float64Array(res);
+    for (let gx = 0; gx < res; gx++) {
+      if (projMode === 'min') {
+        let m = Infinity;
+        for (let gy = 0; gy < res; gy++) { const v = gridVals[gy*res+gx]; if (v < m) m = v; }
+        fProjX[gx] = m;
+      } else {
+        let S = 0;
+        for (let gy = 0; gy < res; gy++) S += Math.exp(-gridVals[gy*res+gx] / kBT);
+        fProjX[gx] = -kBT * Math.log(Math.max(S, 1e-300));
       }
+    }
+    let minPX = fProjX[0]; for (const v of fProjX) if (v < minPX) minPX = v;
+    let maxPX = 0; for (let i = 0; i < res; i++) { fProjX[i] -= minPX; if (fProjX[i] > maxPX) maxPX = fProjX[i]; }
+
+    // F(CV₂): for each gy row, integrate/min over all gx columns
+    // gy=0 → y=+4.5 (TOP of heatmap = hy0), gy=res-1 → y≈-4.5 (BOTTOM = hy1)
+    const fProjY = new Float64Array(res);
+    for (let gy = 0; gy < res; gy++) {
+      if (projMode === 'min') {
+        let m = Infinity;
+        for (let gx = 0; gx < res; gx++) { const v = gridVals[gy*res+gx]; if (v < m) m = v; }
+        fProjY[gy] = m;
+      } else {
+        let S = 0;
+        for (let gx = 0; gx < res; gx++) S += Math.exp(-gridVals[gy*res+gx] / kBT);
+        fProjY[gy] = -kBT * Math.log(Math.max(S, 1e-300));
+      }
+    }
+    let minPY = fProjY[0]; for (const v of fProjY) if (v < minPY) minPY = v;
+    let maxPY = 0; for (let i = 0; i < res; i++) { fProjY[i] -= minPY; if (fProjY[i] > maxPY) maxPY = fProjY[i]; }
+
+    // ── 5. Draw F(CV₁) — top strip ──────────────────────────────
+    // Strip: x ∈ [hx0, hx1], y ∈ [4, hy0-2]
+    // F=0 → bottom of strip (touching heatmap border)
+    // F=max → near top of strip
+    // x of point gx = hx0 + (gx+0.5)*cW  ←  matches heatmap column center exactly
+    const sT_top = 4;
+    const sT_bot = hy0 - 2;
+    const sT_H   = sT_bot - sT_top;
+
+    ctx.fillStyle = 'rgba(2, 8, 23, 0.55)';
+    ctx.fillRect(hx0, sT_top, hW, sT_H);
+
+    if (maxPX > 1e-6) {
+      const pts1 = [];
+      for (let gx = 0; gx < res; gx++) {
+        pts1.push({
+          px: hx0 + (gx + 0.5) * cW,
+          py: sT_bot - (fProjX[gx] / maxPX) * (sT_H - 6)
+        });
+      }
+      // Filled gradient area (baseline = sT_bot)
+      ctx.beginPath();
+      ctx.moveTo(pts1[0].px, sT_bot);
+      for (const p of pts1) ctx.lineTo(p.px, p.py);
+      ctx.lineTo(pts1[res-1].px, sT_bot);
+      ctx.closePath();
+      const g1 = ctx.createLinearGradient(0, sT_top, 0, sT_bot);
+      g1.addColorStop(0, 'rgba(6, 182, 212, 0.45)');
+      g1.addColorStop(1, 'rgba(6, 182, 212, 0.06)');
+      ctx.fillStyle = g1;
+      ctx.fill();
+      // Line
+      ctx.beginPath();
+      ctx.moveTo(pts1[0].px, pts1[0].py);
+      for (const p of pts1) ctx.lineTo(p.px, p.py);
+      ctx.strokeStyle = '#06b6d4';
+      ctx.lineWidth = 1.8;
+      ctx.lineJoin = 'round';
       ctx.stroke();
     }
 
-    // Draw Walker Glowing Dot
-    const wx = toCanvasX(walkerPos.x);
-    const wy = toCanvasY(walkerPos.y);
+    // Label
+    ctx.font = 'bold 9px monospace';
+    ctx.fillStyle = '#06b6d4';
+    ctx.textAlign = 'left';
+    ctx.fillText(
+      `F(CV\u2081) 1D Projection  [${projMode === 'int' ? 'k\u2082T Int.' : 'Min. Path'}]`,
+      hx0 + 4, sT_top + 12
+    );
+    // Separator line between top strip and heatmap
+    ctx.strokeStyle = 'rgba(6, 182, 212, 0.3)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(hx0, hy0); ctx.lineTo(hx1, hy0); ctx.stroke();
 
+    // ── 6. Draw F(CV₂) — right strip ────────────────────────────
+    // Strip: x ∈ [hx1+3, W-4], y ∈ [hy0, hy1]
+    // y of point gy = hy0 + (gy+0.5)*cH  ← matches heatmap row center exactly
+    // F=0 → left edge of strip (touching heatmap border)
+    // F=max → extends toward right
+    const sR_lft = hx1 + 3;
+    const sR_rgt = W - 4;
+    const sR_W   = sR_rgt - sR_lft;
+
+    ctx.fillStyle = 'rgba(2, 8, 23, 0.55)';
+    ctx.fillRect(sR_lft, hy0, sR_W, hH);
+
+    if (maxPY > 1e-6) {
+      const pts2 = [];
+      for (let gy = 0; gy < res; gy++) {
+        pts2.push({
+          // CRITICAL: same y as heatmap row center → alignment by construction
+          py: hy0 + (gy + 0.5) * cH,
+          px: sR_lft + (fProjY[gy] / maxPY) * (sR_W - 6)
+        });
+      }
+      // Filled gradient area (baseline = sR_lft)
+      ctx.beginPath();
+      ctx.moveTo(sR_lft, pts2[0].py);
+      for (const p of pts2) ctx.lineTo(p.px, p.py);
+      ctx.lineTo(sR_lft, pts2[res-1].py);
+      ctx.closePath();
+      const g2 = ctx.createLinearGradient(sR_lft, 0, sR_rgt, 0);
+      g2.addColorStop(0, 'rgba(192, 132, 252, 0.06)');
+      g2.addColorStop(1, 'rgba(192, 132, 252, 0.45)');
+      ctx.fillStyle = g2;
+      ctx.fill();
+      // Line
+      ctx.beginPath();
+      ctx.moveTo(pts2[0].px, pts2[0].py);
+      for (const p of pts2) ctx.lineTo(p.px, p.py);
+      ctx.strokeStyle = '#c084fc';
+      ctx.lineWidth = 1.8;
+      ctx.lineJoin = 'round';
+      ctx.stroke();
+    }
+
+    // Label
+    ctx.save();
+    ctx.font = 'bold 9px monospace';
+    ctx.fillStyle = '#c084fc';
+    ctx.textAlign = 'center';
+    ctx.translate(sR_lft + sR_W / 2, hy0 - 5);
+    ctx.fillText('F(CV\u2082) 1D', 0, 0);
+    ctx.restore();
+    // Separator line between heatmap and right strip
+    ctx.strokeStyle = 'rgba(192, 132, 252, 0.3)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(hx1, hy0); ctx.lineTo(hx1, hy1); ctx.stroke();
+
+    // ── 7. Axis ticks and labels ─────────────────────────────────
+    const axisTicks = [-4.0, -2.0, 0, 2.0, 4.0];
+    ctx.font = 'bold 10px Inter, monospace';
+
+    // X axis (CV₁) — below heatmap
+    for (const tx of axisTicks) {
+      const cx = toHX(tx);
+      ctx.fillStyle = 'rgba(255,255,255,0.4)';
+      ctx.fillRect(cx - 0.5, hy1, 1, 5);
+      ctx.fillStyle = 'rgba(203, 213, 225, 0.85)';
+      ctx.textAlign = 'center';
+      ctx.fillText(tx > 0 ? `+${tx.toFixed(1)}` : `${tx.toFixed(1)}`, cx, hy1 + 16);
+    }
+
+    // Y axis (CV₂) — left of heatmap
+    for (const ty of axisTicks) {
+      const cy = toHY(ty);
+      ctx.fillStyle = 'rgba(255,255,255,0.4)';
+      ctx.fillRect(hx0 - 5, cy - 0.5, 5, 1);
+      ctx.fillStyle = 'rgba(203, 213, 225, 0.85)';
+      ctx.textAlign = 'right';
+      ctx.fillText(ty > 0 ? `+${ty.toFixed(1)}` : `${ty.toFixed(1)}`, hx0 - 7, cy + 4);
+    }
+
+    // CV₁ badge (bottom-right of heatmap)
+    ctx.font = 'bold 11px Inter, monospace';
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+    ctx.fillRect(hx1 - 74, hy1 - 24, 68, 20);
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.6)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(hx1 - 74, hy1 - 24, 68, 20);
+    ctx.fillStyle = '#38bdf8';
+    ctx.textAlign = 'center';
+    ctx.fillText('CV\u2081 (x)', hx1 - 40, hy1 - 10);
+
+    // CV₂ badge (top-left of heatmap)
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+    ctx.fillRect(hx0 + 4, hy0 + 4, 68, 20);
+    ctx.strokeStyle = 'rgba(192, 132, 252, 0.6)';
+    ctx.strokeRect(hx0 + 4, hy0 + 4, 68, 20);
+    ctx.fillStyle = '#c084fc';
+    ctx.textAlign = 'center';
+    ctx.fillText('CV\u2082 (y)', hx0 + 38, hy0 + 18);
+
+    // ── 8. Trajectory ────────────────────────────────────────────
+    if (trajectory.length > 1) {
+      ctx.beginPath();
+      ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+      ctx.lineWidth = 2.5;
+      ctx.moveTo(toHX(trajectory[0].x), toHY(trajectory[0].y));
+      for (const p of trajectory) ctx.lineTo(toHX(p.x), toHY(p.y));
+      ctx.stroke();
+    }
+
+    // ── 9. Walker glowing dot ────────────────────────────────────
+    const wx = toHX(walkerPos.x);
+    const wy = toHY(walkerPos.y);
     ctx.beginPath();
     ctx.arc(wx, wy, 12, 0, 2 * Math.PI);
     ctx.fillStyle = 'rgba(6, 182, 212, 0.3)';
     ctx.fill();
-
     ctx.beginPath();
     ctx.arc(wx, wy, 6, 0, 2 * Math.PI);
     ctx.fillStyle = '#06b6d4';
@@ -595,61 +799,32 @@ const MetadynamicsLab2D = () => {
     ctx.fill();
     ctx.stroke();
 
-    // Draw CV1 (X) & CV2 (Y) Axis Tick Marks and Labels
-    ctx.font = 'bold 10px Inter, monospace';
-    const axisTicks = [-4.0, -2.0, 0, 2.0, 4.0];
+  }, [timeStep, walkerPos, trajectory, canvasViewMode, wells, pesMode, pesFunctionStr, biasPotentials, isWellTempered, biasFactor, projMode, temperature]);
 
-    // X Axis Ticks (CV1)
-    for (let tx of axisTicks) {
-      const cx = toCanvasX(tx);
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-      ctx.fillRect(cx - 0.5, height - 8, 1, 8);
-      ctx.fillStyle = 'rgba(203, 213, 225, 0.85)';
-      ctx.textAlign = 'center';
-      ctx.fillText(tx > 0 ? `+${tx.toFixed(1)}` : `${tx.toFixed(1)}`, cx, height - 10);
-    }
 
-    // Y Axis Ticks (CV2)
-    for (let ty of axisTicks) {
-      const cy = toCanvasY(ty);
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-      ctx.fillRect(0, cy - 0.5, 8, 1);
-      ctx.fillStyle = 'rgba(203, 213, 225, 0.85)';
-      ctx.textAlign = 'left';
-      ctx.fillText(ty > 0 ? `+${ty.toFixed(1)}` : `${ty.toFixed(1)}`, 10, cy + 4);
-    }
-
-    // CV1 Badge (Bottom Right)
-    ctx.font = 'bold 11px Inter, monospace';
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
-    ctx.fillRect(width - 74, height - 26, 68, 20);
-    ctx.strokeStyle = 'rgba(56, 189, 248, 0.6)';
-    ctx.strokeRect(width - 74, height - 26, 68, 20);
-    ctx.fillStyle = '#38bdf8';
-    ctx.textAlign = 'center';
-    ctx.fillText('CV1 (x)', width - 40, height - 12);
-
-    // CV2 Badge (Top Left)
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
-    ctx.fillRect(8, 8, 68, 20);
-    ctx.strokeStyle = 'rgba(192, 132, 252, 0.6)';
-    ctx.strokeRect(8, 8, 68, 20);
-    ctx.fillStyle = '#c084fc';
-    ctx.textAlign = 'center';
-    ctx.fillText('CV2 (y)', 42, 22);
-
-  }, [timeStep, walkerPos, trajectory, canvasViewMode, wells, pesMode, pesFunctionStr, biasPotentials, isWellTempered, biasFactor]);
-
-  // Click on Canvas to reposition walker
+  // Click on Canvas to reposition walker (updated for new margins)
   const handleCanvasClick = (e) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
-    const px = e.clientX - rect.left;
-    const py = e.clientY - rect.top;
 
-    const x = -4.5 + (px / rect.width) * 9.0;
-    const y = 4.5 - (py / rect.height) * 9.0;
+    // Scale CSS pixels to canvas pixels
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const cpx = (e.clientX - rect.left) * scaleX;
+    const cpy = (e.clientY - rect.top) * scaleY;
+
+    // Layout constants (must match canvas useEffect)
+    const ML = 50, MB = 35, MT = 85, MR = 115;
+    const hx0 = ML, hx1 = canvas.width - MR;
+    const hy0 = MT, hy1 = canvas.height - MB;
+    const hW = hx1 - hx0, hH = hy1 - hy0;
+
+    // Only respond to clicks inside the heatmap area
+    if (cpx < hx0 || cpx > hx1 || cpy < hy0 || cpy > hy1) return;
+
+    const x = -4.5 + ((cpx - hx0) / hW) * 9.0;
+    const y = 4.5 - ((cpy - hy0) / hH) * 9.0;
 
     const newPos = { x: parseFloat(x.toFixed(2)), y: parseFloat(y.toFixed(2)) };
     setWalkerPos(newPos);
@@ -911,41 +1086,83 @@ const MetadynamicsLab2D = () => {
         {/* Right Column: 2D Stage Canvas (8 cols) */}
         <div className="lg:col-span-8 flex flex-col space-y-3">
           
-          <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-2xl p-3 shadow-2xl flex flex-col h-[460px]">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-1">
-              <div>
-                <h3 className="font-bold text-slate-100 flex items-center gap-2 text-sm">
-                  <Eye size={16} className="text-purple-400" /> 2D Energy Surface & Trajectory Heatmap
+          {/* 2D Heatmap Stage + Integrated Top CV_x & Right CV_y Projections */}
+          <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-2xl p-3.5 shadow-2xl space-y-2">
+            
+            {/* Header Controls: Canvas View Mode & Projection Mode Toggle */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 pb-2 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <Eye size={16} className="text-purple-400" />
+                <h3 className="font-bold text-slate-100 text-sm">
+                  2D Energy Surface & Integrated 1D Projections
                 </h3>
               </div>
 
-              {/* Canvas View Mode Selector */}
-              <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
-                <button onClick={() => setCanvasViewMode('pes')} className={`px-2 py-0.5 rounded-lg text-xs font-semibold transition-all ${canvasViewMode === 'pes' ? 'bg-purple-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}>
-                  Original V(x,y)
-                </button>
-                <button onClick={() => setCanvasViewMode('total')} className={`px-2 py-0.5 rounded-lg text-xs font-semibold transition-all ${canvasViewMode === 'total' ? 'bg-purple-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}>
-                  Total V + V<sub>B</sub>
-                </button>
-                <button onClick={() => setCanvasViewMode('bias')} className={`px-2 py-0.5 rounded-lg text-xs font-semibold transition-all ${canvasViewMode === 'bias' ? 'bg-purple-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}>
-                  Bias V<sub>B</sub>
-                </button>
-                <button onClick={() => setCanvasViewMode('fes')} className={`px-2 py-0.5 rounded-lg text-xs font-semibold transition-all ${canvasViewMode === 'fes' ? 'bg-purple-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}>
-                  Estimated FES
-                </button>
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Projection Mode Toggle */}
+                <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
+                  <button
+                    onClick={() => setProjMode('int')}
+                    className={`px-2.5 py-0.5 rounded-lg text-xs font-semibold transition-all ${
+                      projMode === 'int'
+                        ? 'bg-cyan-600 text-white shadow-sm'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                    title="Boltzmann integration: F(s₁) = -k_B T ln Σ exp(-F/k_B T)"
+                  >
+                    Boltzmann (k<sub>B</sub>T)
+                  </button>
+                  <button
+                    onClick={() => setProjMode('min')}
+                    className={`px-2.5 py-0.5 rounded-lg text-xs font-semibold transition-all ${
+                      projMode === 'min'
+                        ? 'bg-cyan-600 text-white shadow-sm'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                    title="Minimum energy path: F_min(s₁) = min_s₂ F(s₁, s₂)"
+                  >
+                    Minimum Path
+                  </button>
+                </div>
+
+                {/* Canvas View Mode Selector */}
+                <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
+                  <button onClick={() => setCanvasViewMode('pes')} className={`px-2 py-0.5 rounded-lg text-xs font-semibold transition-all ${canvasViewMode === 'pes' ? 'bg-purple-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}>
+                    Original V(x,y)
+                  </button>
+                  <button onClick={() => setCanvasViewMode('total')} className={`px-2 py-0.5 rounded-lg text-xs font-semibold transition-all ${canvasViewMode === 'total' ? 'bg-purple-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}>
+                    Total V + V<sub>B</sub>
+                  </button>
+                  <button onClick={() => setCanvasViewMode('bias')} className={`px-2 py-0.5 rounded-lg text-xs font-semibold transition-all ${canvasViewMode === 'bias' ? 'bg-purple-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}>
+                    Bias V<sub>B</sub>
+                  </button>
+                  <button onClick={() => setCanvasViewMode('fes')} className={`px-2 py-0.5 rounded-lg text-xs font-semibold transition-all ${canvasViewMode === 'fes' ? 'bg-purple-600 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}>
+                    Estimated FES
+                  </button>
+                </div>
               </div>
             </div>
 
-            {/* 2D Canvas Renderer */}
-            <div className="flex-1 flex items-center justify-center p-1 relative bg-slate-950 rounded-xl border border-slate-800 shadow-inner overflow-hidden">
-              <canvas 
-                ref={canvasRef} 
-                width={560} 
-                height={380} 
+            {/*
+              Unified canvas (680×430): heatmap + F(CV₁) top strip + F(CV₂) right strip.
+              All drawn in canvas pixel coordinates → pixel-perfect alignment.
+              Layout:
+                Left margin (ML=50):  Y-axis tick labels (CV₂)
+                Top strip (MT=85):    F(CV₁) projection (integrate/min over y)
+                Heatmap (515×310):    2D FES coloured surface
+                Right strip (MR=115): F(CV₂) projection (integrate/min over x)
+                Bottom margin (MB=35): X-axis tick labels (CV₁)
+            */}
+            <div style={{ background: '#020817', borderRadius: 16, border: '1px solid #1e293b', overflow: 'hidden', position: 'relative' }}>
+              <canvas
+                ref={canvasRef}
+                width={680}
+                height={430}
                 onClick={handleCanvasClick}
-                className="rounded-lg shadow-xl cursor-crosshair max-w-full h-full object-contain border border-slate-800/80"
+                style={{ display: 'block', width: '100%', cursor: 'crosshair' }}
               />
             </div>
+
 
             {/* Heatmap Legend Bar */}
             <div className="mt-1 flex justify-between items-center text-[10px] text-slate-400 px-2 font-mono">
@@ -955,8 +1172,10 @@ const MetadynamicsLab2D = () => {
             </div>
           </div>
 
+
           {/* 2D COLVAR Time-Series Chart Card */}
           <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-2xl p-3 shadow-xl space-y-1">
+
             <div className="flex justify-between items-center pb-1 border-b border-slate-800">
               <div>
                 <h3 className="font-bold text-slate-100 flex items-center gap-2 text-xs">
