@@ -602,10 +602,13 @@ function createHillsWorker() {
       initSameCount++;
     }
 
-    // B. Timestamp drops (block multiwalker)
+    // B. Timestamp drops (block multiwalker - filters minor simulation restarts < 2000 ps)
     const blockStartIndices = [0];
     for (let i = 1; i < rawRows.length; i++) {
-      if ((rawRows[i][timeIdx] ?? 0) < (rawRows[i - 1][timeIdx] ?? 0)) {
+      const prevT = rawRows[i - 1][timeIdx] ?? 0;
+      const currT = rawRows[i][timeIdx] ?? 0;
+      const dropAmt = prevT - currT;
+      if (dropAmt > 2000 || (currT < prevT && currT <= t0Val + 5000)) {
         blockStartIndices.push(i);
       }
     }
@@ -619,7 +622,6 @@ function createHillsWorker() {
     }
 
     const isBlockStructure = blockStartIndices.length > 1 && blockStartIndices.length === detectedWalkers;
-    const blockSize = isBlockStructure ? Math.ceil(rawRows.length / detectedWalkers) : 1;
 
     const parsedHills = rawRows.map((row, rowIdx) => {
       const timeVal = row[timeIdx] ?? rowIdx * 10;
@@ -632,7 +634,14 @@ function createHillsWorker() {
       let wId = 1;
       if (detectedWalkers > 1) {
         if (isBlockStructure) {
-          wId = Math.min(detectedWalkers, Math.floor(rowIdx / blockSize) + 1);
+          let bIdx = 0;
+          for (let b = blockStartIndices.length - 1; b >= 0; b--) {
+            if (rowIdx >= blockStartIndices[b]) {
+              bIdx = b;
+              break;
+            }
+          }
+          wId = bIdx + 1;
         } else {
           wId = (rowIdx % detectedWalkers) + 1;
         }
