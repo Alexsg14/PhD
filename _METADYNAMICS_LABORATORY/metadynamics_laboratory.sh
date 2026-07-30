@@ -7005,60 +7005,168 @@ function HillsVisualizerInner({
             </div>
           )}
 
-          {/* TAB 3: Collective Variable Trajectory s(t) */}
+          {/* TAB 3: Collective Variable Trajectory s(t) & Multi-Walker Subplots */}
           {hillsData && activeTab === "cv" && (
             <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4 w-full">
-              <div className="border-b border-slate-800 pb-3">
-                <h2 className="text-base font-bold text-white flex items-center gap-2">
-                  <Activity size={18} className="text-emerald-400" />
-                  {hillsData.is2D ? "Collective Variables Trajectory (CV1, CV2) Over Time" : "Collective Variable Trajectory s(t) Over Time"}
-                </h2>
-                <p className="text-slate-400 text-xs">
-                  Shows system diffusion along the reaction coordinate(s) and barrier crossing events.
-                </p>
-              </div>
+              <div className="flex flex-wrap justify-between items-center border-b border-slate-800 pb-3 gap-3">
+                <div>
+                  <h2 className="text-base font-bold text-white flex items-center gap-2">
+                    <Activity size={18} className="text-emerald-400" />
+                    {hillsData.is2D ? "Collective Variables Trajectory (CV1, CV2) Over Time" : "Collective Variable Trajectory s(t) Over Time"}
+                  </h2>
+                  <p className="text-slate-400 text-xs mt-0.5">
+                    Shows system diffusion along reaction coordinate(s). Multi-walker HILLS are split into subplots.
+                  </p>
+                </div>
 
-              <div className="h-[500px] w-full pt-2">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart
-                    data={chartCvData}
-                    margin={{ top: 10, right: 20, left: 10, bottom: 20 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                    <XAxis
-                      dataKey="time"
-                      stroke="#64748b"
-                      tick={{ fill: "#94a3b8", fontSize: 11 }}
-                      label={{ value: "Time (ps)", position: "insideBottom", offset: -12, fill: "#cbd5e1", fontSize: 12 }}
-                    />
-                    <YAxis
-                      stroke="#64748b"
-                      tick={{ fill: "#94a3b8", fontSize: 11 }}
-                    />
-                    <Tooltip />
-                    <Legend verticalAlign="top" height={36} />
-
-                    <Line
-                      type="monotone"
-                      dataKey="cv1"
-                      name={hillsData.cvNames[0] || "CV1"}
-                      stroke="#34d399"
-                      strokeWidth={1.5}
-                      dot={false}
-                    />
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* CV Toggles */}
+                  <div className="flex items-center gap-1.5 bg-slate-950/80 p-1 rounded-xl border border-slate-800 text-xs">
+                    <button
+                      onClick={() => setShowCV1(!showCV1)}
+                      className={`px-2.5 py-1 rounded-lg font-bold flex items-center gap-1.5 transition-all text-xs ${
+                        showCV1
+                          ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 shadow-sm"
+                          : "text-slate-500 hover:text-slate-300 border border-transparent"
+                      }`}
+                      title="Toggle CV1 Visibility"
+                    >
+                      {showCV1 ? <Eye size={13} className="text-emerald-400" /> : <EyeOff size={13} />}
+                      <span>{hillsData.cvNames[0] || "CV1"}</span>
+                    </button>
 
                     {hillsData.is2D && (
-                      <Line
-                        type="monotone"
-                        dataKey="cv2"
-                        name={hillsData.cvNames[1] || "CV2"}
-                        stroke="#a855f7"
-                        strokeWidth={1.5}
-                        dot={false}
-                      />
+                      <button
+                        onClick={() => setShowCV2(!showCV2)}
+                        className={`px-2.5 py-1 rounded-lg font-bold flex items-center gap-1.5 transition-all text-xs ${
+                          showCV2
+                            ? "bg-purple-500/20 text-purple-300 border border-purple-500/50 shadow-sm"
+                            : "text-slate-500 hover:text-slate-300 border border-transparent"
+                        }`}
+                        title="Toggle CV2 Visibility"
+                      >
+                        {showCV2 ? <Eye size={13} className="text-purple-400" /> : <EyeOff size={13} />}
+                        <span>{hillsData.cvNames[1] || "CV2"}</span>
+                      </button>
                     )}
-                  </LineChart>
-                </ResponsiveContainer>
+                  </div>
+
+                  {/* Walkers Override Selector */}
+                  <div className="flex items-center gap-1.5 bg-slate-950/80 px-2.5 py-1 rounded-xl border border-slate-800 text-xs text-slate-300">
+                    <Users size={14} className="text-indigo-400" />
+                    <span className="text-[11px] font-medium text-slate-400">Walkers:</span>
+                    <select
+                      value={numWalkersOverride}
+                      onChange={(e) => setNumWalkersOverride(e.target.value)}
+                      className="bg-slate-900 border border-slate-800 text-slate-200 text-xs rounded-lg px-2 py-0.5 outline-none font-mono"
+                    >
+                      <option value="auto">Auto ({walkerParsedData.numWalkers})</option>
+                      <option value="1">1 Walker</option>
+                      <option value="2">2 Walkers</option>
+                      <option value="3">3 Walkers</option>
+                      <option value="4">4 Walkers</option>
+                      <option value="6">6 Walkers</option>
+                      <option value="8">8 Walkers</option>
+                      <option value="12">12 Walkers</option>
+                      <option value="16">16 Walkers</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Subplots Container */}
+              <div className={`grid gap-5 w-full ${
+                walkerParsedData.numWalkers > 1 ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1"
+              }`}>
+                {walkerParsedData.walkerSeries.map((wObj) => (
+                  <div
+                    key={wObj.walkerId}
+                    className="bg-slate-950/80 border border-slate-800/90 p-4 rounded-xl space-y-2 shadow-lg flex flex-col justify-between"
+                  >
+                    <div className="flex justify-between items-center border-b border-slate-800/80 pb-2 text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 bg-indigo-950 text-indigo-300 border border-indigo-700/60 rounded-lg font-bold font-mono text-[11px]">
+                          Walker {wObj.walkerId}
+                        </span>
+                        <span className="text-[10px] text-slate-500 font-mono">
+                          {wObj.totalHills} hills
+                        </span>
+                      </div>
+                      <span className="text-[10px] text-slate-400 font-mono">
+                        Y Range: [{wObj.domainY[0]}, {wObj.domainY[1]}]
+                      </span>
+                    </div>
+
+                    <div className={walkerParsedData.numWalkers > 1 ? "h-[280px] w-full pt-1" : "h-[450px] w-full pt-1"}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={wObj.data} margin={{ top: 10, right: 20, left: 10, bottom: 20 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                          <XAxis
+                            dataKey="time"
+                            stroke="#64748b"
+                            tick={{ fill: "#94a3b8", fontSize: 11 }}
+                            label={{ value: "Time (ps)", position: "insideBottom", offset: -12, fill: "#cbd5e1", fontSize: 11 }}
+                          />
+                          <YAxis
+                            stroke="#64748b"
+                            tick={{ fill: "#94a3b8", fontSize: 11 }}
+                            domain={wObj.domainY}
+                          />
+                          <Tooltip
+                            content={({ active, payload }) => {
+                              if (active && payload && payload.length) {
+                                const d = payload[0].payload;
+                                return (
+                                  <div className="bg-slate-950/95 border border-slate-800 p-2.5 rounded-xl shadow-2xl text-xs space-y-1 font-mono">
+                                    <div className="text-cyan-400 font-bold border-b border-slate-800 pb-1">
+                                      Walker {wObj.walkerId} • t = {d.time} ps
+                                    </div>
+                                    {showCV1 && (
+                                      <div className="text-emerald-300 font-semibold">
+                                        {hillsData.cvNames[0] || "CV1"}: {d.cv1}
+                                      </div>
+                                    )}
+                                    {hillsData.is2D && showCV2 && typeof d.cv2 === "number" && (
+                                      <div className="text-purple-300 font-semibold">
+                                        {hillsData.cvNames[1] || "CV2"}: {d.cv2}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              }
+                              return null;
+                            }}
+                          />
+                          <Legend verticalAlign="top" height={30} />
+
+                          {showCV1 && (
+                            <Line
+                              type="monotone"
+                              dataKey="cv1"
+                              name={hillsData.cvNames[0] || "CV1"}
+                              stroke="#34d399"
+                              strokeWidth={1.5}
+                              dot={false}
+                              isAnimationActive={false}
+                            />
+                          )}
+
+                          {hillsData.is2D && showCV2 && (
+                            <Line
+                              type="monotone"
+                              dataKey="cv2"
+                              name={hillsData.cvNames[1] || "CV2"}
+                              stroke="#c084fc"
+                              strokeWidth={1.5}
+                              dot={false}
+                              isAnimationActive={false}
+                            />
+                          )}
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           )}
