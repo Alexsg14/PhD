@@ -76,7 +76,7 @@ PhD/
 
 ---
 
-## 🥽 VR Setup & Installation Protocol
+## 🥽 VR Setup & Installation Protocol..
 
 This protocol guides the installation and configuration of Meta Quest headsets for interactive molecular dynamics visualization on Windows PCs and mobile devices.
 
