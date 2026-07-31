@@ -2185,8 +2185,8 @@
         `;
 
             const alignedLen = alignedSeqs[0].length;
-            const blockSize = 60;
-            const maxLabelLen = Math.max(...sequences.map(s => s.name.length));
+            const blockSize = 80;
+            const maxLabelLen = Math.max(...sequences.map(s => s.name.length), 9);
 
             for (let pos = 0; pos < alignedLen; pos += blockSize) {
                 const end = Math.min(pos + blockSize, alignedLen);
@@ -2218,13 +2218,14 @@
                     <h3 style="font-size: 12pt; margin-top: 20px; border-bottom: 1px dashed #cbd5e1; padding-bottom: 3px; color: #0f172a;">Alignment: ${s1.name} vs. ${s2.name}</h3>
                     <p style="font-size: 10pt; color: #475569; margin-bottom: 10px;">Identity: <strong>${identity}%</strong> | Length: <strong>${pairAlign.a1.length} aa</strong></p>
                     
-                    <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 14px; font-family: 'Fira Code', monospace; font-size: 8.5pt; line-height: 1.5; white-space: pre; color: #0f172a; overflow-x: auto;">
+                    <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 16px 20px; font-family: 'Fira Code', monospace; font-size: 8.5pt; line-height: 1.55; white-space: pre; color: #0f172a; overflow-x: auto;">
                 `;
 
                     const pairLen = pairAlign.a1.length;
-                    const pairBlockSize = 80;
+                    const pairBlockSize = 60;
                     let s1Count = 0;
                     let s2Count = 0;
+                    const maxPairLabelLen = Math.max(s1.name.length, s2.name.length);
 
                     for (let pos = 0; pos < pairLen; pos += pairBlockSize) {
                         const end = Math.min(pos + pairBlockSize, pairLen);
@@ -2254,15 +2255,15 @@
                         let s2End = s2Count + s2NonGaps;
                         s2Count += s2NonGaps;
 
-                        let label1 = s1.name.substring(0, 12).padEnd(12, ' ');
-                        let label2 = s2.name.substring(0, 12).padEnd(12, ' ');
+                        let label1 = s1.name.padEnd(maxPairLabelLen, ' ');
+                        let label2 = s2.name.padEnd(maxPairLabelLen, ' ');
 
-                        let s1StartStr = s1Start.toString().padStart(3, ' ');
-                        let s2StartStr = s2Start.toString().padStart(3, ' ');
+                        let s1StartStr = s1Start.toString().padStart(4, ' ');
+                        let s2StartStr = s2Start.toString().padStart(4, ' ');
 
                         let lRef = `${label1} ${s1StartStr}  `;
                         let lSeq = `${label2} ${s2StartStr}  `;
-                        let lMid = "".padEnd(18, ' ');
+                        let lMid = "".padEnd(maxPairLabelLen + 1 + 4 + 2, ' ');
 
                         html += `${lRef}${a1Sub}   ${s1End}\n`;
                         html += `<span style="color: #64748b;">${lMid}${matchSub}</span>\n`;
@@ -2407,7 +2408,7 @@ The consensus row indicates identical positions (\\texttt{*}), conserved positio
 
             const alignedLen = alignedSeqs[0].length;
             const blockSize = 60;
-            const maxLabelLen = Math.max(...sequences.map(s => s.name.length));
+            const maxLabelLen = Math.max(...sequences.map(s => s.name.length), 9);
 
             for (let pos = 0; pos < alignedLen; pos += blockSize) {
                 const end = Math.min(pos + blockSize, alignedLen);
@@ -2447,9 +2448,10 @@ Detailed global pairwise alignments between all compared sequences.
 `;
 
                     const pairLen = pairAlign.a1.length;
-                    const pairBlockSize = 80;
+                    const pairBlockSize = 60;
                     let s1Count = 0;
                     let s2Count = 0;
+                    const maxPairLabelLen = Math.max(s1.name.length, s2.name.length);
 
                     for (let pos = 0; pos < pairLen; pos += pairBlockSize) {
                         const end = Math.min(pos + pairBlockSize, pairLen);
@@ -2485,16 +2487,15 @@ Detailed global pairwise alignments between all compared sequences.
                         let s2End = s2Count + s2NonGaps;
                         s2Count += s2NonGaps;
 
-                        // Formatear etiquetas de la izquierda
-                        let label1 = s1.name.substring(0, 12).padEnd(12, ' ');
-                        let label2 = s2.name.substring(0, 12).padEnd(12, ' ');
+                        let label1 = s1.name.padEnd(maxPairLabelLen, ' ');
+                        let label2 = s2.name.padEnd(maxPairLabelLen, ' ');
 
-                        let s1StartStr = s1Start.toString().padStart(3, ' ');
-                        let s2StartStr = s2Start.toString().padStart(3, ' ');
+                        let s1StartStr = s1Start.toString().padStart(4, ' ');
+                        let s2StartStr = s2Start.toString().padStart(4, ' ');
 
                         let lRef = `${label1} ${s1StartStr}  `;
                         let lSeq = `${label2} ${s2StartStr}  `;
-                        let lMid = "".padEnd(18, ' ');
+                        let lMid = "".padEnd(maxPairLabelLen + 1 + 4 + 2, ' ');
 
                         latex += `${lRef}${a1Sub}   ${s1End}\n`;
                         latex += `${lMid}${matchSub}\n`;
